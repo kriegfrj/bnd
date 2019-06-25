@@ -1,0 +1,20 @@
+    
+-runfw: org.apache.felix.framework;version='[5.6.10,5.6.10]'
+-runrequires: \
+	bnd.identity;id='org.junit.jupiter.engine',\
+	bnd.identity;id='org.junit.vintage.engine',\
+	bnd.identity;id='biz.aQute.junit.platform'
+-runee: JavaSE-1.8
+-runbundles: \
+	org.apiguardian;version='[1.0.0,1.0.1)',\
+	org.junit.platform.launcher;version='[1.0.0,1.0.1)',\
+	org.junit.vintage.engine;version='[4.12.0,4.12.1)',\
+	org.junit.jupiter.engine;version='[5.0.0,5.0.1)',\
+	biz.aQute.junit.platform.reporting;version='[1.4.0,1.4.1)'
+-runsystempackages: org.junit.experimental.categories;version=4.12,\
+	org.junit.platform.engine;version=1.0.0,\
+	org.junit.platform.engine.reporting;version=1.0.0,\
+	org.junit.platform.engine.discovery;version=1.0.0,\
+	org.junit.platform.engine.support.descriptor;version=1.0.0,\
+	org.junit.platform.engine.support.filter;version=1.0.0,\
+	org.junit.platform.engine.support.hierarchical;version=1.0.0

@@ -10,11 +10,15 @@ Timestamp: ${_@tstamp}
 	biz.aQute.launcher/biz.aQute.launcher-${base.version}.jar=${repo;biz.aQute.launcher;snapshot}, \
 	biz.aQute.remote.launcher/biz.aQute.remote.launcher-${base.version}.jar=${repo;biz.aQute.remote.launcher;snapshot}, \
 	biz.aQute.junit/biz.aQute.junit-${base.version}.jar=${repo;biz.aQute.junit;snapshot}, \
+	biz.aQute.junit.platform/biz.aQute.junit.platform-${base.version}.jar=${repo;biz.aQute.junit.platform;snapshot}, \
+	biz.aQute.junit.platform.reporting/biz.aQute.junit.platform.reporting-${junit-platform-reporting}.jar=${repo;biz.aQute.junit.platform.reporting;snapshot}, \
 	biz.aQute.tester/biz.aQute.tester-${base.version}.jar=${repo;biz.aQute.tester;snapshot}
 
 
 -dependson: \
 	biz.aQute.junit, \
+	biz.aQute.junit.platform, \
+	biz.aQute.junit.platform.reporting, \
 	biz.aQute.launcher, \
 	biz.aQute.remote, \
 	biz.aQute.tester

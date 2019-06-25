@@ -1,0 +1,7 @@
+    
+-runfw: org.apache.felix.framework;version='[5.6.10,5.6.10]'
+-runrequires: \
+	bnd.identity;id='biz.aQute.tester'
+-runee: JavaSE-1.8
+-runsystempackages: org.junit.experimental.categories;version=4.12,\
+	aQute.tester.test

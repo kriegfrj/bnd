@@ -1,0 +1,46 @@
+-runfw: org.apache.felix.framework;version='[5.6.10,5.6.10]'
+-runee: JavaSE-1.8
+
+-tester: biz.aQute.junit.platform	
+
+-runrequires: \
+	bnd.identity;id='org.junit.jupiter.engine',\
+	bnd.identity;id='org.junit.vintage.engine',\
+	bnd.identity;id='test2',\
+	bnd.identity;id='my.bundle.of.test3',\
+	bnd.identity;id='biz.aQute.junit.platform.reporting',\
+	bnd.identity;id='biz.aQute.junit.platform',\
+	bnd.identity;id='org.apache.felix.gogo.command',\
+	bnd.identity;id='org.apache.felix.gogo.runtime',\
+	bnd.identity;id='org.apache.felix.gogo.shell',\
+	bnd.identity;id='test-fragment'
+	
+-runproperties: launcher.trace=true,\
+	osgi.console=,\
+	osgi.console.enable.builtin=false,\
+	tester.continuous=true
+
+-runbundles: \
+	com.google.guava;version='[19.0.0,19.0.1)',\
+	my.bundle.of.test3;version='[4.3.0,4.3.1)',\
+	my.fragment.of.test4;version='[4.3.0,4.3.1)',\
+	org.apache.felix.gogo.command;version='[1.0.2,1.0.3)',\
+	org.apache.felix.gogo.runtime;version='[1.1.0,1.1.1)',\
+	org.apache.felix.gogo.shell;version='[1.1.0,1.1.1)',\
+	org.apache.servicemix.bundles.junit;version='[4.12.0,4.12.1)',\
+	org.apiguardian;version='[1.0.0,1.0.1)',\
+	org.assertj.core;version='[3.12.1,3.12.2)',\
+	org.junit.jupiter.api;version='[5.0.0,5.0.1)',\
+	org.junit.jupiter.engine;version='[5.0.0,5.0.1)',\
+	org.junit.jupiter.params;version='[5.0.0,5.0.1)',\
+	org.junit.platform.commons;version='[1.0.0,1.0.1)',\
+	org.junit.platform.engine;version='[1.0.0,1.0.1)',\
+	org.junit.platform.launcher;version='[1.0.0,1.0.1)',\
+	org.junit.vintage.engine;version='[4.12.0,4.12.1)',\
+	org.opentest4j;version='[1.0.0,1.0.1)',\
+	test;version='[4.3.0,4.3.1)',\
+	test-fragment;version='[4.3.0,4.3.1)',\
+	main-with-runners;version='[4.3.0,4.3.1)',\
+	biz.aQute.junit.platform;version='[4.3.0,4.3.1)',\
+	biz.aQute.junit.platform.reporting;version='[1.4.0,1.4.1)'
+	

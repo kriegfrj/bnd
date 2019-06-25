@@ -1,0 +1,18 @@
+# Set javac settings from JDT prefs
+-include: ${workspace}/cnf/includes/jdt.bnd
+
+-exportcontents: *
+
+Bundle-Description: A library to be statically linked. Used for testing tester implementations. \
+This bundle should not be installed in a framework, it is for testing only.
+
+-buildpath: \
+	osgi.core;version=latest,\
+	org.apache.servicemix.bundles.junit;version=latest,\
+	org.assertj.core;version=latest,\
+	aQute.libg;version=latest,\
+	biz.aQute.bndlib;version=latest;packages=aQute.bnd.osgi,\
+	biz.aQute.junit;version=latest;packages=aQute.junit.constants,\
+	biz.aQute.launchpad;version=latest,\
+	org.eclipse.jdt.junit.core;version=latest,\
+	org.opentest4j;version=latest
