@@ -1,0 +1,90 @@
+# Set javac settings from JDT prefs
+-include: ${workspace}/cnf/includes/jdt.bnd
+
+Bundle-Description: \
+	A bnd tester using JUnit Platform. Like biz.aQute.tester, this bundle \
+	will add itself to the -runbundles at the end. At startup, this bundle will then \
+	look for TestEngine implementations among the loaded bundles and use them to \
+	execute the tests. This bundle does NOT contain the necessary TestEngine \
+	implementations for JUnit 3, 4 or 5 - it will import them just like any other \
+	bundle.
+
+# The dependency on aQute packages is only for the
+# launcher side. When launched, those dependencies
+# are not necessary
+Import-Package: \
+	aQute.*;resolution:=optional,\
+	junit.*;version='[3.8,5)';resolution:=optional,\
+	org.junit.platform.*,\
+	org.junit;version='[4,5)';resolution:=optional,\
+	*
+
+Bundle-Activator: aQute.junit.platform.Activator
+
+-privatepackage: aQute.junit.platform.*,\
+	aQute.junit.bundle.*
+	
+-includeresource.perm: OSGI-INF/permissions.perm;literal="(java.security.AllPermission)"
+
+-includeresource: \
+	resources
+	
+Tester-Plugin: \
+	aQute.junit.platform.plugin.ProjectTesterImpl
+
+-conditionalpackage: aQute.lib*
+
+-maven-scope: provided
+
+-buildpath: \
+	osgi.core;version=latest,\
+	biz.aQute.bndlib;version=latest,\
+	biz.aQute.junit;version=latest;packages=aQute.junit.constants,\
+	org.apache.servicemix.bundles.junit;version=latest,\
+	org.junit.platform.launcher;version=latest,\
+	org.junit.platform.engine;version=latest,\
+	org.junit.platform.commons;version=latest,\
+	biz.aQute.junit.platform.reporting;version=latest,\
+	org.opentest4j;version=latest,\
+	org.apiguardian;version=latest
+
+-testpath: \
+	${junit},\
+	org.assertj.core;version='3.12.1',\
+	aQute.libg;version=latest,\
+	org.junit.jupiter.api;version=latest,\
+	org.junit.platform:junit-platform-testkit;version=latest,\
+	slf4j.api;version=latest,\
+	slf4j.simple;version=latest,\
+	biz.aQute.tester.test;version=latest,\
+	biz.aQute.launchpad;version=latest,\
+	org.junit.platform.engine;version=latest,\
+	org.junit.jupiter.api;version=latest,\
+	org.junit.jupiter.params;version=latest,\
+	org.junit.platform.commons;version=latest,\
+	org.opentest4j;version=latest,\
+	org.eclipse.jdt.junit.core;version=latest,\
+	org.eclipse.core.runtime;version=latest,\
+	org.eclipse.equinox.common;version=latest
+
+
+-runsystempackages: \
+	org.junit.jupiter.api;version=5.0.1,\
+	org.junit.jupiter.api.function;version=5.0.1,\
+	org.junit.jupiter.params;version=5.0.1,\
+	org.junit.jupiter.params.provider;version=5.0.1,\
+	org.junit.platform.engine.support.hierarchical;version=1.0.0,\
+	org.junit.platform.engine.support.filter;version=1.0.0,\
+	org.junit.experimental.categories;version=4.12
+	
+-runfw: org.apache.felix.framework;version='[5.6.10,5.6.10]'
+-runee: JavaSE-1.8
+-runrequires: \
+	bnd.identity;id='org.junit.jupiter.engine',\
+	bnd.identity;id='org.junit.vintage.engine'
+-runbundles: \
+	org.apiguardian;version='[1.0.0,1.0.1)',\
+	org.junit.jupiter.engine;version='[5.0.0,5.0.1)',\
+	org.junit.vintage.engine;version='[4.12.0,4.12.1)'
+
+-baseline: *

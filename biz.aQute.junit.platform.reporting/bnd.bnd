@@ -1,0 +1,4 @@
+-includeresource.reporting: @${repo;org.junit.platform:junit-platform-reporting;${junit-platform-reporting}}
+-includeresource.launcher: @${repo;org.junit.platform:junit-platform-launcher;${junit-platform-reporting}}!/org/junit/platform/launcher/listeners/LegacyReportingUtils.class
+-exportcontents: org.junit.platform.reporting.*;version="${junit-platform-reporting}"
+Bundle-Version: ${junit-platform-reporting}
