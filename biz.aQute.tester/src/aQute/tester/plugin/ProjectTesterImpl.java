@@ -19,7 +19,8 @@ import aQute.bnd.osgi.Processor;
 import aQute.bnd.service.EclipseJUnitTester;
 
 public class ProjectTesterImpl extends ProjectTester implements EclipseJUnitTester {
-	int					port	= -1;
+	int					port		= -1;
+	boolean				rerunIDE	= false;
 	String				host;
 	boolean				prepared;
 	private Container	me;
@@ -88,5 +89,4 @@ public class ProjectTesterImpl extends ProjectTester implements EclipseJUnitTest
 	public void setPort(int port) {
 		this.port = port;
 	}
-
 }

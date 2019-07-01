@@ -115,6 +115,7 @@ public abstract class AbstractActivatorTest extends SoftAssertions {
 	protected LaunchpadBuilder	builder;
 	protected Launchpad			lp;
 	SecurityManager				oldManager;
+	protected int				eclipseJUnitPort;
 
 	protected TestRunDataAssert assertThat(TestRunData a) {
 		return proxy(TestRunDataAssert.class, TestRunData.class, a);
@@ -477,10 +478,7 @@ public abstract class AbstractActivatorTest extends SoftAssertions {
 
 	RemoteTestRunnerClient client;
 
-	protected TestRunListener startEclipseListener() {
-		if (lp != null) {
-			throw new IllegalStateException("Framework already started");
-		}
+	protected TestRunListener startEclipseJUnitListener() {
 		int port = findFreePort();
 		client = new RemoteTestRunnerClient();
 		TestRunListener listener = new TestRunListener(this, DEBUG);
@@ -488,12 +486,16 @@ public abstract class AbstractActivatorTest extends SoftAssertions {
 			listener
 		}, port);
 
-		builder.set(TESTER_PORT, Integer.toString(port));
+		eclipseJUnitPort = port;
 		return listener;
 	}
 
 	protected TestRunData runTestsEclipse(Callback postCreateCallback, TestClassName[]... testBundles) {
-		TestRunListener listener = startEclipseListener();
+		if (lp != null) {
+			throw new IllegalStateException("Framework already started");
+		}
+		TestRunListener listener = startEclipseJUnitListener();
+		builder.set(TESTER_PORT, Integer.toString(eclipseJUnitPort));
 		final long startTime = System.currentTimeMillis();
 		try {
 			runTests(postCreateCallback, testBundles);

@@ -2,7 +2,6 @@ package aQute.junit.bundle.engine.test;
 
 import static aQute.junit.bundle.engine.BundleEngine.CHECK_UNRESOLVED;
 import static org.assertj.core.api.Assertions.allOf;
-import static org.assertj.core.api.Assumptions.assumeThat;
 import static org.junit.platform.commons.util.FunctionUtils.where;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectMethod;
@@ -27,7 +26,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.assertj.core.api.Condition;
@@ -375,8 +373,6 @@ public class BundleEngineTest {
 
 	public Builder engineInFramework(Launchpad lp) {
 		try {
-			// engineBundle = lp.bundles("biz.aQute.tester")
-			// .get(0);
 			engineBundle = lp.bundle()
 				.addResourceWithCopy(BundleEngine.class)
 				.addResourceWithCopy(BundleEngineDescriptor.class)
@@ -425,11 +421,14 @@ public class BundleEngineTest {
 	public void withUnresolvedBundles_reportsUnresolved_andSkipsMainTests() throws Exception {
 		Launchpad lp = lpRule.getLaunchpad();
 
-		List<String> unresolved = lp.bundles("bndtools.core, bndtools.api")
-			.stream()
-			.map(BundleEngineTest::descriptionOf)
-			.collect(Collectors.toList());
-		assumeThat(unresolved).hasSize(2);
+		String unresolved1 = lp.bundle()
+			.importPackage("some.unknown.pkg")
+			.install()
+			.getSymbolicName();
+		String unresolved2 = lp.bundle()
+			.importPackage("some.other.package")
+			.install()
+			.getSymbolicName();
 
 		Bundle testBundle = startTestBundle(JUnit4Test);
 
@@ -439,11 +438,11 @@ public class BundleEngineTest {
 			.assertThatEvents()
 			.haveExactly(1, event(container("unresolvedBundles"), finishedSuccessfully()))
 			.haveExactly(1,
-				event(test(unresolved.get(0)),
+				event(test(unresolved1),
 					finishedWithFailure(instanceOf(BundleException.class),
 						message(x -> x.contains("Unable to resolve")))))
 			.haveExactly(1,
-				event(test(unresolved.get(1)),
+				event(test(unresolved2),
 					finishedWithFailure(instanceOf(BundleException.class),
 						message(x -> x.contains("Unable to resolve")))))
 			.haveExactly(1, event(bundle(testBundle), skippedWithReason("Unresolved bundles")));
@@ -454,11 +453,9 @@ public class BundleEngineTest {
 		throws Exception {
 		Launchpad lp = lpRule.getLaunchpad();
 
-		List<String> unresolved = lp.bundles("bndtools.core, bndtools.api")
-			.stream()
-			.map(BundleEngineTest::descriptionOf)
-			.collect(Collectors.toList());
-		assumeThat(unresolved).hasSize(2);
+		Bundle unresolved = lp.bundle()
+			.importPackage("some.unknown.pgk")
+			.install();
 
 		Bundle testBundle = startTestBundle(JUnit4Test);
 
@@ -603,7 +600,7 @@ public class BundleEngineTest {
 		Launchpad lp = lpRule.getLaunchpad();
 
 		BundleSpecBuilder bb = buildTestBundle(TestClass);
-		Bundle unResolvedTestBundle = bb.importPackage("some.unknown.package")
+		Bundle unResolvedTestBundle = bb.importPackage("some.unknown.pkg")
 			.install();
 
 		engineInFramework().selectors(selectClass(TestClass.fqName()))
@@ -693,11 +690,9 @@ public class BundleEngineTest {
 	public void withUnresolvedClass_andUnresolvedBundle_andUnattachedFragment_reportsAll() throws Exception {
 		Launchpad lp = lpRule.getLaunchpad();
 
-		String unresolved = lp.bundles("bndtools.core")
-			.stream()
-			.map(BundleEngineTest::descriptionOf)
-			.findFirst()
-			.orElseThrow(() -> new IllegalStateException("Didn't get bndtools.core to install"));
+		Bundle unresolved = lp.bundle()
+			.importPackage("some.unknown.pkg")
+			.install();
 
 		Bundle testBundle = startTestBundle(JUnit4Test);
 
@@ -712,7 +707,7 @@ public class BundleEngineTest {
 			.assertThatEvents()
 			.haveExactly(1, event(container("unresolvedBundles"), finishedSuccessfully()))
 			.haveExactly(1,
-				event(test(unresolved),
+				event(test(unresolved.getSymbolicName()),
 					finishedWithFailure(instanceOf(BundleException.class),
 						message(x -> x.contains("Unable to resolve")))))
 			.haveExactly(1, event(container("unattachedFragments"), finishedSuccessfully()))
@@ -724,7 +719,7 @@ public class BundleEngineTest {
 			.assertThatEvents()
 			.haveExactly(1, event(container("unresolvedBundles"), finishedSuccessfully()))
 			.haveExactly(1,
-				event(test(unresolved),
+				event(test(unresolved.getSymbolicName()),
 					finishedWithFailure(instanceOf(BundleException.class),
 						message(x -> x.contains("Unable to resolve")))))
 			.haveExactly(1, event(container("unattachedFragments"), finishedSuccessfully()))

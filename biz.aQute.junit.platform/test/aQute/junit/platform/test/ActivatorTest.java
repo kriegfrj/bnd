@@ -4,7 +4,11 @@ import static aQute.junit.constants.TesterConstants.TESTER_UNRESOLVED;
 import static aQute.tester.utils.TestRunData.nameOf;
 import static org.eclipse.jdt.internal.junit.model.ITestRunListener2.STATUS_FAILURE;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -13,6 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.assertj.core.api.Assertions;
 import org.junit.AssumptionViolatedException;
 import org.junit.BeforeClass;
 import org.junit.ComparisonFailure;
@@ -23,6 +28,7 @@ import org.opentest4j.MultipleFailuresError;
 import org.opentest4j.TestAbortedException;
 import org.osgi.framework.Bundle;
 
+import aQute.junit.constants.TesterConstants;
 import aQute.junit.platform.Activator;
 import aQute.launchpad.LaunchpadBuilder;
 import aQute.lib.io.IO;
@@ -31,6 +37,7 @@ import aQute.tester.utils.TestClassName;
 import aQute.tester.utils.TestEntry;
 import aQute.tester.utils.TestFailure;
 import aQute.tester.utils.TestRunData;
+import aQute.tester.utils.TestRunListener;
 import aQute.tester.utils.TestSourceBundler;
 
 // This is because we're not building in the same project.
@@ -155,6 +162,119 @@ public class ActivatorTest extends AbstractActivatorTest {
 			.hasSuccessfulTest(JUnit5Test, "somethingElseAgain")
 			;
 		// @formatter:on
+	}
+
+	private void readWithTimeout(InputStream inStr) throws Exception {
+		long endTime = System.currentTimeMillis() + 10000;
+		int available;
+		while ((available = inStr.available()) == 0 && System.currentTimeMillis() < endTime) {
+			Thread.sleep(10);
+		}
+		if (available == 0) {
+			Assertions.fail("Timeout waiting for data");
+		}
+		assertThat(available).as("control signal")
+			.isEqualTo(1);
+		int value = inStr.read();
+		assertThat(value).as("control value")
+			.isNotEqualTo(-1);
+	}
+
+	@Test
+	public void eclipseListener_worksInContinuousMode_withControlSocket() throws Exception {
+		try (ServerSocket controlSock = new ServerSocket(0)) {
+			controlSock.setSoTimeout(10000);
+			int controlPort = controlSock.getLocalPort();
+			lp = builder.set("launch.services", "true")
+				.set(TesterConstants.TESTER_CONTINUOUS, "true")
+				// This value should be ignored
+				.set(TesterConstants.TESTER_PORT, Integer.toString(controlPort - 2))
+				.set(TesterConstants.TESTER_CONTROLPORT, Integer.toString(controlPort))
+				.create();
+			addTestBundle(With2Failures, JUnit4Test);
+
+			runTester();
+			try (Socket sock = controlSock.accept()) {
+				InputStream inStr = sock.getInputStream();
+				DataOutputStream outStr = new DataOutputStream(sock.getOutputStream());
+
+				readWithTimeout(inStr);
+				TestRunListener listener = startEclipseJUnitListener();
+				outStr.writeInt(eclipseJUnitPort);
+				outStr.flush();
+				listener.waitForClientToFinish(10000);
+
+				TestRunData result = listener.getLatestRunData();
+
+				if (result == null) {
+					fail("Result was null" + listener);
+					// To prevent NPE and allow any soft assertions to be
+					// displayed.
+					return;
+				}
+
+				assertThat(result.getTestCount()).as("testCount")
+					.isEqualTo(5);
+
+				// @formatter:off
+				assertThat(result.getNameMap()
+					.keySet()).as("executed")
+				.contains(
+					nameOf(With2Failures),
+					nameOf(With2Failures, "test1"),
+					nameOf(With2Failures, "test2"),
+					nameOf(With2Failures, "test3"),
+					nameOf(JUnit4Test),
+					nameOf(JUnit4Test, "somethingElse"),
+					nameOf(testBundles.get(0))
+					);
+
+				assertThat(result).as("result")
+					.hasFailedTest(With2Failures, "test1", AssertionError.class)
+					.hasSuccessfulTest(With2Failures, "test2")
+					.hasFailedTest(With2Failures, "test3", CustomAssertionError.class)
+					.hasSuccessfulTest(JUnit4Test, "somethingElse")
+					;
+				// @formatter:on
+				addTestBundle(With1Error1Failure, JUnit5Test);
+
+				readWithTimeout(inStr);
+				listener = startEclipseJUnitListener();
+				outStr.writeInt(eclipseJUnitPort);
+				outStr.flush();
+				listener.waitForClientToFinish(10000);
+
+				result = listener.getLatestRunData();
+
+				if (result == null) {
+					fail("Eclipse didn't capture output from the second run");
+					return;
+				}
+				int i = 2;
+				assertThat(result.getTestCount()).as("testCount:" + i)
+					.isEqualTo(4);
+
+				// @formatter:off
+				assertThat(result.getNameMap()
+					.keySet()).as("executed:2")
+				.contains(
+					nameOf(With1Error1Failure),
+					nameOf(With1Error1Failure, "test1"),
+					nameOf(With1Error1Failure, "test2"),
+					nameOf(With1Error1Failure, "test3"),
+					nameOf(JUnit5Test, "somethingElseAgain"),
+					nameOf(testBundles.get(1))
+					);
+
+				assertThat(result).as("result:2")
+					.hasErroredTest(With1Error1Failure, "test1", RuntimeException.class)
+					.hasSuccessfulTest(With1Error1Failure, "test2")
+					.hasFailedTest(With1Error1Failure, "test3", AssertionError.class)
+					.hasSuccessfulTest(JUnit5Test, "somethingElseAgain")
+					;
+					// @formatter:on
+			}
+		}
 	}
 
 	@Test
