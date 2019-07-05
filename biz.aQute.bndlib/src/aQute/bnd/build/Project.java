@@ -3386,6 +3386,7 @@ public class Project extends Processor {
 			runspecification.properties = getRunProperties();
 			runspecification.runbundles = toPaths(runspecification.errors, getRunbundles());
 			runspecification.runfw = toPaths(runspecification.errors, getRunFw());
+			runspecification.runee = getRunee();
 			runspecification.runpath = toPaths(runspecification.errors, getRunpath());
 
 			for (String key : Iterables.iterable(getProperties().propertyNames(), String.class::cast)) {

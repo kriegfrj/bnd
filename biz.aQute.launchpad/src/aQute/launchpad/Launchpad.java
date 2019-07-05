@@ -56,6 +56,7 @@ import org.osgi.framework.wiring.FrameworkWiring;
 import org.osgi.util.tracker.ServiceTracker;
 
 import aQute.bnd.service.specifications.RunSpecification;
+import aQute.launchpad.LaunchpadBuilder.JAVA;
 import aQute.launchpad.internal.ProbeImpl;
 import aQute.lib.converter.Converter;
 import aQute.lib.exceptions.Exceptions;
@@ -89,6 +90,7 @@ public class Launchpad implements AutoCloseable {
 	static final AtomicInteger					n						= new AtomicInteger();
 	final File									projectDir;
 
+	final JAVA									runEE;
 	final Framework								framework;
 	final List<ServiceTracker<?, ?>>			trackers				= new ArrayList<>();
 	final List<FrameworkEvent>					frameworkEvents			= new CopyOnWriteArrayList<>();
@@ -128,6 +130,26 @@ public class Launchpad implements AutoCloseable {
 			this.injector = new Injector<>(makeConverter(), this::getService, Service.class);
 			this.frameworkExports = getExports(framework).keySet();
 
+			JAVA runEE = JAVA.fromCurrentVersion();
+
+			if (runspec.runee != null) {
+				JAVA version = JAVA.fromEEString(runspec.runee);
+				if (version == null) {
+					error("Unknown execution environment %s in -runee setting, ignoring", runspec.runee);
+				} else {
+					if (runEE.getJavaVersion() < version.getJavaVersion()) {
+						error("Specified execution environment %s is higher than what the current JVM supports (%s). "
+							+ "Launchpad may create bundles that by default don't resolve.", version.getEE(),
+							runEE.getEE());
+					}
+					runEE = version;
+				}
+			} else {
+				runEE = JAVA.fromCurrentVersion();
+			}
+			this.runEE = runEE;
+
+			report("Initialized execution environment %s", this.runEE.getEE());
 			report("Initialized framework %s", this.framework);
 			report("Classpath %s", System.getProperty("java.class.path")
 				.replace(File.pathSeparatorChar, '\n'));

@@ -25,6 +25,7 @@ public class BundleBuilder implements BundleSpecBuilder, AutoCloseable {
 		this.ws = ws;
 		spec.classpath.add(ws.runspec.bin_test);
 		bundleSymbolicName("t-" + LaunchpadBuilder.counter.incrementAndGet());
+		requireEE(ws.runEE);
 	}
 
 	/**

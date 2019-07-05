@@ -15,8 +15,10 @@ import java.util.stream.Stream;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.Version;
+import org.osgi.framework.namespace.ExecutionEnvironmentNamespace;
 
 import aQute.bnd.service.specifications.BuilderSpecification;
+import aQute.launchpad.LaunchpadBuilder.JAVA;
 import aQute.lib.exceptions.Exceptions;
 import aQute.lib.io.IO;
 import aQute.lib.regex.PatternConstants;
@@ -137,6 +139,13 @@ public interface BundleSpecBuilder {
 		 */
 		String bsn();
 
+	}
+
+	/**
+	 * Generate a Require-Capability for the specified Execution Environment.
+	 */
+	default BundleSpecBuilder requireEE(JAVA ee) {
+		return requireCapability(ExecutionEnvironmentNamespace.EXECUTION_ENVIRONMENT_NAMESPACE).filter(ee.getFilter());
 	}
 
 	/**

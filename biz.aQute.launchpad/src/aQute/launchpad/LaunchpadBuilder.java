@@ -179,6 +179,82 @@ public class LaunchpadBuilder implements AutoCloseable {
 		return this;
 	}
 
+	public enum JAVA {
+		JDK1_1(1, "JRE-1.1", "(&(osgi.ee=JavaSE)(version=1.1))"), //
+		JDK1_2(2, "J2SE-1.2", "(&(osgi.ee=JavaSE)(version=1.2))"), //
+		JDK1_3(3, "J2SE-1.3", "(&(osgi.ee=JavaSE)(version=1.3))"), //
+		JDK1_4(4, "J2SE-1.4", "(&(osgi.ee=JavaSE)(version=1.4))"), //
+		J2SE5(5, "J2SE-1.5", "(&(osgi.ee=JavaSE)(version=1.5))"), //
+		J2SE6(6, "JavaSE-1.6", "(&(osgi.ee=JavaSE)(version=1.6))"), //
+		OpenJDK7(7, "JavaSE-1.7", "(&(osgi.ee=JavaSE)(version=1.7))"), //
+		OpenJDK8(8, "JavaSE-1.8", "(&(osgi.ee=JavaSE)(version=1.8))"), //
+		OpenJDK9(9, "JavaSE-9", "(&(osgi.ee=JavaSE)(version=9))"), //
+		OpenJDK10(10, "JavaSE-10", "(&(osgi.ee=JavaSE)(version=10))"), //
+		OpenJDK11(11, "JavaSE-11", "(&(osgi.ee=JavaSE)(version=11))"), //
+		OpenJDK12(12, "JavaSE-12", "(&(osgi.ee=JavaSE)(version=12))"), //
+		OpenJDK13(13, "JavaSE-13", "(&(osgi.ee=JavaSE)(version=13))");
+
+		final int		javaVersion;
+		final String				ee;
+		final String				filter;
+
+		JAVA(int javaVersion, String ee, String filter) {
+			this.javaVersion = javaVersion;
+			this.ee = ee;
+			this.filter = filter;
+		}
+
+		public int getJavaVersion() {
+			return javaVersion;
+		}
+
+		public String getEE() {
+			return ee;
+		}
+
+		public String getFilter() {
+			return filter;
+		}
+
+		public static JAVA fromEEString(String ee) {
+			for (JAVA test : values()) {
+				if (test.getEE()
+					.equals(ee)) {
+					return test;
+				}
+			}
+			return null;
+		}
+
+		public static JAVA fromCurrentVersion() {
+			return fromVersionString(System.getProperty("java.version"));
+		}
+
+		public static JAVA fromVersionString(String version) {
+			String[] bits = version.split("\\.");
+			if (bits == null || bits.length == 0) {
+				return null;
+			}
+			if (bits[0].equals("1")) {
+				return fromVersionNo(Integer.parseInt(bits[1]));
+			}
+			return fromVersionNo(Integer.parseInt(bits[0]));
+		}
+
+		public static JAVA fromVersionNo(int version) {
+			for (JAVA test : values()) {
+				if (test.getJavaVersion() == version) {
+					return test;
+				}
+			}
+			return null;
+		}
+	}
+
+	public LaunchpadBuilder runee(String specification) {
+		local.runee = specification;
+		return this;
+	}
 	public LaunchpadBuilder runfw(String specification) {
 		local.runfw = workspace.getLatestBundles(projectDir.getAbsolutePath(), specification);
 		return this;

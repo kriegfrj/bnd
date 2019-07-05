@@ -25,6 +25,7 @@ public class RunSpecification implements Cloneable {
 	public List<String>						errors					= new ArrayList<>();
 	public List<String>						runfw					= new ArrayList<>();
 	public Map<String, String>				instructions			= new HashMap<>();
+	public String							runee;
 
 	/**
 	 * Create a clone of this specification.
