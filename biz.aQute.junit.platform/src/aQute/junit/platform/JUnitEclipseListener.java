@@ -144,21 +144,17 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 			}
 
 			@Override
-			public void close() {
-			}
+			public void close() {}
 		});
 		out = new PrintWriter(new Writer() {
 			@Override
-			public void write(char[] cbuf, int off, int len) {
-			}
+			public void write(char[] cbuf, int off, int len) {}
 
 			@Override
-			public void flush() throws IOException {
-			}
+			public void flush() throws IOException {}
 
 			@Override
-			public void close() throws IOException {
-			}
+			public void close() throws IOException {}
 		});
 	}
 
@@ -501,8 +497,7 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 		}
 		try {
 			io.close();
-		} catch (IOException e) {
-		}
+		} catch (IOException e) {}
 	}
 
 	@Override

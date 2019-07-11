@@ -2,8 +2,7 @@
 
 -runbundles: \
 	org.junit.jupiter.engine,\
-	org.junit.vintage.engine,\
-	biz.aQute.junit.platform.reporting
+	org.junit.vintage.engine
 -runsystempackages: ${runsystempackages.junit4},\
 	${runsystempackages.junit-jupiter},\
 	${runsystempackages.junit-platform-engine}

@@ -357,8 +357,7 @@ public class BundleSelectorResolver {
 					.loadClass(x.getClassName());
 				selectors.add(selectMethod(testClass, x.getMethodName(), x.getMethodParameterTypes()));
 				unresolvedClasses.remove(x.getClassName());
-			} catch (ClassNotFoundException cnfe) {
-			}
+			} catch (ClassNotFoundException cnfe) {}
 		});
 		info(() -> "Selectors: " + selectors);
 		return selectors;

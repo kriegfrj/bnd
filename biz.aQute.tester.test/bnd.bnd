@@ -16,3 +16,5 @@ This bundle should not be installed in a framework, it is for testing only.
 	biz.aQute.launchpad;version=latest,\
 	org.eclipse.jdt.junit.core;version=latest,\
 	org.opentest4j;version=latest
+	
+-builderignore: testresources

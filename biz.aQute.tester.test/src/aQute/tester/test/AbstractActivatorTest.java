@@ -90,12 +90,10 @@ public abstract class AbstractActivatorTest extends SoftAssertions {
 	// otherwise cause the entire test harness to exit.
 	class ExitCheck extends SecurityManager {
 		@Override
-		public void checkPermission(Permission perm) {
-		}
+		public void checkPermission(Permission perm) {}
 
 		@Override
-		public void checkPermission(Permission perm, Object context) {
-		}
+		public void checkPermission(Permission perm, Object context) {}
 
 		@Override
 		public void checkExit(int status) {

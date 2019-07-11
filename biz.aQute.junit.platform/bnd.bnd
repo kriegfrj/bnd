@@ -28,7 +28,9 @@ Bundle-Activator: aQute.junit.platform.Activator
 
 -includeresource: \
 	resources
-	
+
+-builderignore: testresources
+
 Tester-Plugin: \
 	aQute.junit.platform.plugin.ProjectTesterImpl
 
@@ -50,7 +52,7 @@ Tester-Plugin: \
 
 -testpath: \
 	${junit},\
-	org.assertj.core;version='3.12.1',\
+	org.assertj.core;version=latest,\
 	aQute.libg;version=latest,\
 	org.junit.jupiter.api;version=latest,\
 	org.junit.platform:junit-platform-testkit;version=latest,\
@@ -66,25 +68,5 @@ Tester-Plugin: \
 	org.eclipse.jdt.junit.core;version=latest,\
 	org.eclipse.core.runtime;version=latest,\
 	org.eclipse.equinox.common;version=latest
-
-
--runsystempackages: \
-	org.junit.jupiter.api;version=5.0.1,\
-	org.junit.jupiter.api.function;version=5.0.1,\
-	org.junit.jupiter.params;version=5.0.1,\
-	org.junit.jupiter.params.provider;version=5.0.1,\
-	org.junit.platform.engine.support.hierarchical;version=1.0.0,\
-	org.junit.platform.engine.support.filter;version=1.0.0,\
-	org.junit.experimental.categories;version=4.12
-	
--runfw: org.apache.felix.framework;version='[5.6.10,5.6.10]'
--runee: JavaSE-1.8
--runrequires: \
-	bnd.identity;id='org.junit.jupiter.engine',\
-	bnd.identity;id='org.junit.vintage.engine'
--runbundles: \
-	org.apiguardian;version='[1.0.0,1.0.1)',\
-	org.junit.jupiter.engine;version='[5.0.0,5.0.1)',\
-	org.junit.vintage.engine;version='[4.12.0,4.12.1)'
 
 -baseline: *

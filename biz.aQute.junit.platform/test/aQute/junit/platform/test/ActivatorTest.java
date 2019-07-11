@@ -432,7 +432,7 @@ public class ActivatorTest extends AbstractActivatorTest {
 			IO.close(this.builder);
 			// builder.debug();
 			builder.bndrun("no-engines.bndrun")
-					.excludeExport("aQute.junit.bundle.*");
+				.excludeExport("aQute.junit.bundle.*");
 			this.builder = builder;
 			TestRunData result = runTestsEclipse(JUnit5AbortTest, JUnit4AbortTest);
 			assertThat(result).hasErroredTest("Initialization Error",
@@ -470,7 +470,9 @@ public class ActivatorTest extends AbstractActivatorTest {
 		try (LaunchpadBuilder builder = new LaunchpadBuilder()) {
 			IO.close(this.builder);
 			builder.debug();
-			builder.bndrun("no-vintage-engine.bndrun").excludeExport("aQute.junit.bundle.*").excludeExport("org.junit");
+			builder.bndrun("no-vintage-engine.bndrun")
+				.excludeExport("aQute.junit.bundle.*")
+				.excludeExport("org.junit");
 			this.builder = builder;
 			TestClassName[] tests = {
 				JUnit3ComparisonTest, JUnit5Test, JUnit5SimpleComparisonTest
@@ -499,10 +501,11 @@ public class ActivatorTest extends AbstractActivatorTest {
 		builder.set(TESTER_UNRESOLVED, "true");
 		AtomicReference<Bundle> bundleRef = new AtomicReference<>();
 		TestRunData result = runTestsEclipse(() -> {
-			bundleRef.set(lp.bundle().importPackage("some.unknown.package")
-					.requireCapability(ExecutionEnvironmentNamespace.EXECUTION_ENVIRONMENT_NAMESPACE)
-					.filter("(&(osgi.ee=JavaSE)(version=1.8))")
-					.install());
+			bundleRef.set(lp.bundle()
+				.importPackage("some.unknown.package")
+				.requireCapability(ExecutionEnvironmentNamespace.EXECUTION_ENVIRONMENT_NAMESPACE)
+				.filter("(&(osgi.ee=JavaSE)(version=1.8))")
+				.install());
 		}, JUnit3Test, JUnit4Test);
 
 		assertThat(result).hasSuccessfulTest("Unresolved bundles");
@@ -513,10 +516,11 @@ public class ActivatorTest extends AbstractActivatorTest {
 		builder.set(TESTER_UNRESOLVED, "false");
 		AtomicReference<Bundle> bundleRef = new AtomicReference<>();
 		TestRunData result = runTestsEclipse(() -> {
-			bundleRef.set(lp.bundle().importPackage("some.unknown.package")
-					.requireCapability(ExecutionEnvironmentNamespace.EXECUTION_ENVIRONMENT_NAMESPACE)
-					.filter("(&(osgi.ee=JavaSE)(version=1.8))")
-					.install());
+			bundleRef.set(lp.bundle()
+				.importPackage("some.unknown.package")
+				.requireCapability(ExecutionEnvironmentNamespace.EXECUTION_ENVIRONMENT_NAMESPACE)
+				.filter("(&(osgi.ee=JavaSE)(version=1.8))")
+				.install());
 		}, JUnit3Test, JUnit4Test);
 
 		assertThat(result.getNameMap()

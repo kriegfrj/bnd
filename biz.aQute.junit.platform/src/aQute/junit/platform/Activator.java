@@ -59,8 +59,7 @@ public class Activator implements BundleActivator, Runnable {
 	private SummaryGeneratingListener	summary;
 	private TestExecutionListener[]		listeners;
 
-	public Activator() {
-	}
+	public Activator() {}
 
 	@Override
 	public void start(BundleContext context) throws Exception {
