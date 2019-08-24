@@ -54,10 +54,51 @@ public class ProjectLauncherImplTest extends TestCase {
 	}
 
 	public void testCwdIsProjectBase() throws Exception {
-		try (ProjectLauncherImpl launcher = new ProjectLauncherImpl(project,
-			new Container(project, launcherJar))) {
+		try (ProjectLauncherImpl launcher = new ProjectLauncherImpl(project, new Container(project, launcherJar))) {
 			launcher.updateFromProject();
 			assertEquals(project.getBase(), launcher.getCwd());
 		}
 	}
+
+	// @Ignore("LockerClient is a test library class and isn't available")
+	// public void testWriteProperties_acquiresLock() throws Exception {
+	// try (ProjectLauncherImpl launcher = new ProjectLauncherImpl(project, new
+	// Container(project, launcherJar))) {
+	// Field f =
+	// ProjectLauncherImpl.class.getDeclaredField("launchPropertiesFile");
+	// f.setAccessible(true);
+	// final File launchPropertiesFile = (File) f.get(launcher);
+	// try (LockerClient locker = new LockerClient()) {
+	// locker.lockShared(launchPropertiesFile);
+	// AtomicReference<Exception> ex = new AtomicReference<>();
+	// CountDownLatch flag = new CountDownLatch(1);
+	//
+	// launcher.updateFromProject();
+	// Thread t = new Thread(() -> {
+	// try {
+	// launcher.writeProperties();
+	// } catch (Exception e) {
+	// ex.set(e);
+	// }
+	// flag.countDown();
+	// });
+	// t.start();
+	// boolean result = flag.await(5000, TimeUnit.MILLISECONDS);
+	// if (ex.get() != null) {
+	// Assertions.fail("writeProperties() threw an exception: " + ex.get(),
+	// ex.get());
+	// }
+	// if (result) {
+	// fail("writeProperties() did not wait for the lock to be released");
+	// }
+	// locker.unlock(launchPropertiesFile);
+	// assertThat(flag.await(5000, TimeUnit.MILLISECONDS)).as("after unlocked")
+	// .isTrue();
+	// if (ex.get() != null) {
+	// Assertions.fail("writeProperties() threw an exception: " + ex.get(),
+	// ex.get());
+	// }
+	// }
+	// }
+	// }
 }

@@ -216,17 +216,19 @@ public class Launcher implements ServiceListener {
 			if (!propertiesFile.isFile())
 				errorAndExit("Specified launch file `%s' was not found - absolutePath='%s'", path,
 					propertiesFile.getAbsolutePath());
-			in = IO.stream(propertiesFile);
+			in = IO.lockedStream(propertiesFile);
 		} else {
 			in = Launcher.class.getClassLoader()
 				.getResourceAsStream(DEFAULT_LAUNCHER_PROPERTIES);
-			if (in == null) {
-				printUsage();
-				errorAndExit("Launch file not specified, and no embedded properties found.");
-				return;
-			}
 		}
-		loadProperties(in);
+		if (in == null) {
+			printUsage();
+			errorAndExit("Launch file not specified, and no embedded properties found.");
+			return;
+		}
+		try (InputStream str = in) {
+			loadProperties(str);
+		}
 	}
 
 	public String getPropertiesPath() {
@@ -275,7 +277,7 @@ public class Launcher implements ServiceListener {
 				public void run() {
 					long now = propertiesFile.lastModified();
 					if (begin < now) {
-						try (InputStream in = IO.stream(propertiesFile)) {
+						try (InputStream in = IO.lockedStream(propertiesFile)) {
 							loadProperties(in);
 							List<Bundle> tobestarted = update(now);
 							startBundles(tobestarted);

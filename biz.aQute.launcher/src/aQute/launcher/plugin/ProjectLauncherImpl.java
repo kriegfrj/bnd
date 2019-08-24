@@ -54,19 +54,19 @@ import aQute.libg.cryptography.SHA1;
 import aQute.libg.glob.Glob;
 
 public class ProjectLauncherImpl extends ProjectLauncher {
-	private final static Logger		logger				= LoggerFactory.getLogger(ProjectLauncherImpl.class);
-	private static final String		EMBEDDED_RUNPATH	= "Embedded-Runpath";
-	private static final String		LAUNCHER_PATH		= "launcher.runpath";
-	private static final String		EMBEDDED_LAUNCHER	= "aQute.launcher.pre.EmbeddedLauncher";
-	static final String				PRE_JAR				= "biz.aQute.launcher.pre.jar";
-	private final Container			container;
-	private final List<String>		launcherpath		= new ArrayList<>();
+	private final static Logger	logger				= LoggerFactory.getLogger(ProjectLauncherImpl.class);
+	private static final String	EMBEDDED_RUNPATH	= "Embedded-Runpath";
+	private static final String	LAUNCHER_PATH		= "launcher.runpath";
+	private static final String	EMBEDDED_LAUNCHER	= "aQute.launcher.pre.EmbeddedLauncher";
+	static final String			PRE_JAR				= "biz.aQute.launcher.pre.jar";
+	private final Container		container;
+	private final List<String>	launcherpath		= new ArrayList<>();
 
-	private File					preTemp;
+	private File				preTemp;
 
-	final private File				launchPropertiesFile;
-	boolean							prepared;
-	DatagramSocket					listenerComms;
+	final private File			launchPropertiesFile;
+	boolean						prepared;
+	DatagramSocket				listenerComms;
 
 	public ProjectLauncherImpl(Project project, Container container) throws Exception {
 		super(project);
@@ -200,7 +200,7 @@ public class ProjectLauncherImpl extends ProjectLauncher {
 
 	void writeProperties() throws Exception {
 		LauncherConstants lc = getConstants(getRunBundles(), false);
-		try (OutputStream out = IO.outputStream(launchPropertiesFile)) {
+		try (OutputStream out = IO.lockedOutputStream(launchPropertiesFile)) {
 			lc.getProperties(new UTF8Properties())
 				.store(out, "Launching " + getProject());
 		}
@@ -238,8 +238,7 @@ public class ProjectLauncherImpl extends ProjectLauncher {
 					while (!socket.isClosed()) {
 						try {
 							socket.receive(packet);
-							ByteBuffer bb = ByteBuffer.wrap(packet.getData(), packet.getOffset(),
-								packet.getLength());
+							ByteBuffer bb = ByteBuffer.wrap(packet.getData(), packet.getOffset(), packet.getLength());
 							DataInput dai = ByteBufferDataInput.wrap(bb);
 							NotificationType type = NotificationType.values()[dai.readInt()];
 							String message = dai.readUTF();
