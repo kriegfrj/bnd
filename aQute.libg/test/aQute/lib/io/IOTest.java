@@ -1,13 +1,21 @@
 package aQute.lib.io;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.io.File;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+
+import org.assertj.core.api.Assertions;
 
 import aQute.lib.io.IO.EnvironmentCalculator;
 import junit.framework.TestCase;
@@ -343,4 +351,157 @@ public class IOTest extends TestCase {
 		assertEquals("testString", result);
 	}
 
+	public void testLockedStream_whileFileLockedExclusively_waitsForLockToRelease_thenAcquiresSharedLock_andReleasesWhenClosed()
+		throws Exception {
+		final byte[] expected = new byte[] {
+			0, 1, 2, 3, 4, 5
+		};
+		final File testFile = File.createTempFile("testLockedStream", ".tmp");
+		try {
+			IO.write(expected, testFile);
+			try (LockerClient locker = new LockerClient()) {
+				locker.lockExclusive(testFile);
+				AtomicReference<Exception> ex = new AtomicReference<>();
+				CountDownLatch flag = new CountDownLatch(1);
+				AtomicReference<InputStream> inStr = new AtomicReference<>();
+
+				Thread t = new Thread(() -> {
+					try {
+						inStr.set(IO.lockedStream(testFile.toPath()));
+					} catch (Exception e) {
+						e.printStackTrace();
+						ex.set(e);
+					}
+					flag.countDown();
+				});
+				t.start();
+				boolean result = flag.await(5000, TimeUnit.MILLISECONDS);
+				if (result) {
+					assertThat(ex.get()).as("exception:locked")
+						.isNull();
+					fail("lockedStream() did not wait for the lock");
+				}
+				locker.unlock(testFile);
+				assertThat(flag.await(5000, TimeUnit.MILLISECONDS)).as("after unlocked")
+					.isTrue();
+				if (ex.get() != null) {
+					throw ex.get();
+				}
+				InputStream is = inStr.get();
+				assertThat(is).as("instr")
+					.isNotNull();
+				for (int counter = 0; counter < expected.length; counter++) {
+					assertThat(locker.tryLockExclusive(testFile)).as("tryLock after " + counter + " bytes read")
+						.isFalse();
+					assertThat(is.read()).as("byte:" + counter)
+						.isEqualTo(expected[counter]);
+				}
+				assertThat(locker.tryLockShared(testFile)).as("tryLockShared after all data read")
+					.isTrue();
+				locker.unlock(testFile);
+				assertThat(locker.tryLockExclusive(testFile)).as("tryLock after all data read")
+					.isFalse();
+				IO.close(inStr.get());
+				assertThat(locker.tryLockExclusive(testFile)).as("tryLock after stream closed")
+					.isTrue();
+			}
+		} finally {
+			Files.delete(testFile.toPath());
+		}
+	}
+
+	static final byte[] expected = new byte[] {
+		0, 1, 2, 3, 4, 5
+	};
+
+	public void testLockedOutputStream_createsFileIfNotExists() throws Exception {
+		final File testFile = File.createTempFile("testLockedOutputStream_truncatesExistingFile", ".tmp");
+		testFile.delete();
+		assertThat(testFile).as("before")
+			.doesNotExist();
+		IO.lockedOutputStream(testFile.toPath())
+			.close();
+		assertThat(testFile).as("after")
+			.exists()
+			.hasContent("");
+	}
+
+	public void testLockedOutputStream_truncatesExistingFile() throws Exception {
+		final File testFile = File.createTempFile("testLockedOutputStream_truncatesExistingFile", ".tmp");
+		IO.write(expected, testFile);
+		assertThat(testFile).as("before")
+			.hasBinaryContent(expected);
+		IO.lockedOutputStream(testFile.toPath())
+			.close();
+		assertThat(testFile).as("after")
+			.hasContent("");
+	}
+
+	public void testLockedOutputStream_whileFileLockedShared_behavesCorrectly()
+		throws Exception {
+		// "behavesCorrectly" =
+		// waits for lock to release
+		// then acquires an exclusive lock
+		// then truncates the file (not before acquiring its own lock)
+		// file remains locked until the stream is closed.
+		final File testFile = File.createTempFile("testLockedOutputStream_whileFileLocked", ".tmp");
+		try {
+			final byte[] initial = new byte[] {
+				7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+			};
+			IO.write(initial, testFile);
+			try (LockerClient locker = new LockerClient()) {
+				locker.lockShared(testFile);
+				AtomicReference<Exception> ex = new AtomicReference<>();
+				CountDownLatch flag = new CountDownLatch(1);
+				AtomicReference<OutputStream> outStr = new AtomicReference<>();
+
+				Thread t = new Thread(() -> {
+					try {
+						outStr.set(IO.lockedOutputStream(testFile.toPath()));
+					} catch (Exception e) {
+						e.printStackTrace();
+						ex.set(e);
+					}
+					flag.countDown();
+				});
+				t.start();
+				// Wait 5 seconds just to make sure that the thread is waiting
+				boolean result = flag.await(5000, TimeUnit.MILLISECONDS);
+				if (result) {
+					assertThat(ex.get()).as("exception:locked")
+						.isNull();
+					fail("lockedOutputStream() did not wait for the lock");
+				}
+				// Make sure that the file hasn't been truncated before the lock
+				// is acquired
+				assertThat(testFile).as("before lock acquired")
+					.hasBinaryContent(initial);
+				locker.unlock(testFile);
+				assertThat(flag.await(5000, TimeUnit.MILLISECONDS)).as("after unlocked")
+					.isTrue();
+				if (ex.get() != null) {
+					Assertions.fail("lockedOutputStream() threw an exception", ex.get());
+				}
+				OutputStream os = outStr.get();
+				assertThat(os).as("outstr")
+					.isNotNull();
+				for (int counter = 0; counter < expected.length; counter++) {
+					assertThat(locker.tryLockShared(testFile)).as("tryLock after " + counter + " bytes written")
+						.isFalse();
+					os.write(expected[counter]);
+				}
+				assertThat(locker.tryLockShared(testFile)).as("tryLockShared after all data written")
+					.isFalse();
+				IO.close(os);
+				assertThat(locker.tryLockExclusive(testFile)).as("tryLock after stream closed")
+					.isTrue();
+				locker.unlock(testFile);
+				assertThat(IO.read(testFile)).as("data")
+					.containsExactly(expected);
+			}
+		} finally {
+			Files.delete(testFile.toPath());
+		}
+	}
 }

@@ -26,6 +26,7 @@ import java.nio.CharBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
+import java.nio.channels.FileLock;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.charset.Charset;
@@ -1000,6 +1001,21 @@ public class IO {
 		return url.openStream();
 	}
 
+	public static InputStream lockedStream(File file) throws IOException {
+		return lockedStream(file.toPath());
+	}
+
+	public static InputStream lockedStream(Path path) throws IOException {
+		FileChannel fch = FileChannel.open(path, StandardOpenOption.READ);
+		try {
+			FileLock lock = fch.lock(0, Long.MAX_VALUE, true);
+			return Channels.newInputStream(fch);
+		} catch (IOException e) {
+			fch.close();
+			throw e;
+		}
+	}
+
 	public static FileChannel readChannel(Path path) throws IOException {
 		return FileChannel.open(path, readOptions);
 	}
@@ -1012,6 +1028,21 @@ public class IO {
 		return Files.newOutputStream(path);
 	}
 
+	public static OutputStream lockedOutputStream(File file) throws IOException {
+		return lockedOutputStream(file.toPath());
+	}
+
+	public static OutputStream lockedOutputStream(Path path) throws IOException {
+		FileChannel fch = FileChannel.open(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE);
+		try {
+			FileLock lock = fch.lock(0, Long.MAX_VALUE, false);
+			fch.truncate(0);
+			return Channels.newOutputStream(fch);
+		} catch (IOException e) {
+			fch.close();
+			throw e;
+		}
+	}
 	public static FileChannel writeChannel(Path path) throws IOException {
 		return FileChannel.open(path, writeOptions);
 	}
