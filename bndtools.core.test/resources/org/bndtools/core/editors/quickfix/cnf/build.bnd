@@ -1,0 +1,12 @@
+-plugin.0.Repo1:\
+    aQute.bnd.repository.maven.provider.MavenBndRepository;\
+        releaseUrl="https://repo.maven.apache.org/maven2";\
+        index="${.}/repo1.mvn";\
+        readOnly=true
+
+-plugin.1.Repo2:\
+    aQute.bnd.repository.maven.provider.MavenBndRepository;\
+        releaseUrl="https://repo.maven.apache.org/maven2";\
+        index="${.}/repo2.mvn";\
+        readOnly=true
+        
