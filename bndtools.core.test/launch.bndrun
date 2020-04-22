@@ -27,6 +27,7 @@
     tester.separatethread=true,\
     osgi.instance.area=${.}/generated/workspace,\
 	bndtools.core.test.workspaces=${.}/resources/
+#	tester.names=org.bndtools.core.editors.quickfix.BuildpathQuickFixProcessorTest:withAnnotatedFQType_suggestsBundles(org.assertj.core.api.SoftAssertions)
     
 -runbundles: \
 	biz.aQute.bndlib;version=snapshot,\
