@@ -9,7 +9,12 @@ Test-Cases: ${classes;CONCRETE;PUBLIC;NAMED;*Test*}
 #	org.eclipse.osgi,\
 #	org.eclipse.core.resources
 
+-conditionalpackage: \
+	aQute.lib.*;-split-package:=merge-first, \
+	aQute.libg.*;-split-package:=merge-first
+
 -buildpath: \
+	aQute.libg;version=snapshot,\
 	bndtools.core;version=snapshot,\
 	bndtools.builder;version=snapshot,\
 	org.junit.platform.commons;version=latest,\
