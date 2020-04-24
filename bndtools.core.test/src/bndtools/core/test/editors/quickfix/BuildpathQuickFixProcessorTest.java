@@ -1,7 +1,7 @@
-package org.bndtools.core.editors.quickfix;
+package bndtools.core.test.editors.quickfix;
 
+import static bndtools.core.test.utils.ResourceLock.TEST_WORKSPACE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.bndtools.core.testutils.ResourceLock.TEST_WORKSPACE;
 import static org.eclipse.jdt.core.compiler.IProblem.ImportNotFound;
 import static org.eclipse.jdt.core.compiler.IProblem.IsClassPathCorrect;
 import static org.eclipse.jdt.core.compiler.IProblem.UndefinedType;
@@ -29,6 +29,7 @@ import org.assertj.core.presentation.StandardRepresentation;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspaceRoot;
+import org.eclipse.core.resources.IncrementalProjectBuilder;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.NullProgressMonitor;
@@ -49,7 +50,11 @@ import org.eclipse.jdt.ui.text.java.IInvocationContext;
 import org.eclipse.jdt.ui.text.java.IJavaCompletionProposal;
 import org.eclipse.jdt.ui.text.java.IProblemLocation;
 import org.eclipse.jdt.ui.text.java.IQuickFixProcessor;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.application.WorkbenchAdvisor;
 import org.eclipse.ui.dialogs.IOverwriteQuery;
+import org.eclipse.ui.internal.Workbench;
 import org.eclipse.ui.wizards.datatransfer.FileSystemStructureProvider;
 import org.eclipse.ui.wizards.datatransfer.ImportOperation;
 import org.junit.jupiter.api.BeforeAll;
@@ -64,6 +69,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
 
+import aQute.bnd.build.Project;
 import aQute.lib.exceptions.Exceptions;
 import bndtools.central.Central;
 
@@ -94,13 +100,51 @@ public class BuildpathQuickFixProcessorTest {
 		};
 	}
 
+	static interface MonitoredTask {
+		void run(IProgressMonitor monitor) throws Exception;
+	}
+
+	static void synchronously(String msg, MonitoredTask task) {
+		try {
+			String suffix = msg == null ? "" : ": " + msg;
+			CountDownLatch flag = new CountDownLatch(1);
+			log("Synchronously executing" + suffix);
+			task.run(countDownMonitor(flag));
+			log("Waiting for flag" + suffix);
+			flag.await(10000, TimeUnit.MILLISECONDS);
+			log("Finished waiting for flag" + suffix);
+		} catch (Exception e) {
+			throw Exceptions.duck(e);
+		}
+	}
+
+	static void synchronously(MonitoredTask task) {
+		synchronously(null, task);
+	}
+
 	@SuppressWarnings("unchecked")
-	@BeforeAll
-	static void beforeAll() throws Exception {
-		Bundle b = FrameworkUtil.getBundle(BuildpathQuickFixProcessorTest.class);
+	static void initSUTClass() throws Exception {
 		sutClass = (Class<? extends IQuickFixProcessor>) Central.class.getClassLoader()
 				.loadClass("org.bndtools.core.editors.quickfix.BuildpathQuickFixProcessor");
-		Path srcRoot = Paths.get(b.getBundleContext().getProperty("bndtools.core.test.workspaces"));
+	}
+
+	@BeforeAll
+	static void beforeAll() throws Exception {
+		initSUTClass();
+		// Note: remote possibility of a race condition here
+		if (!PlatformUI.isWorkbenchRunning()) {
+			Display d = PlatformUI.createDisplay();
+			WorkbenchAdvisor advisor = new WorkbenchAdvisor() {
+				@Override
+				public String getInitialWindowPerspectiveId() {
+					return null;
+				}
+			};
+			PlatformUI.createAndRunWorkbench(d, advisor);
+		}
+		Bundle b = FrameworkUtil.getBundle(BuildpathQuickFixProcessorTest.class);
+		Path srcRoot = Paths.get("./resources/");
+//		Path srcRoot = Paths.get(b.getBundleContext().getProperty("bndtools.core.test.workspaces"));
 		Path ourRoot = srcRoot.resolve("org/bndtools/core/editors/quickfix");
 
 		// Clean the workspace
@@ -132,37 +176,48 @@ public class BuildpathQuickFixProcessorTest {
 		}
 		log("About to wait for imports to complete " + sourceProjects.size());
 		flag.await(10000, TimeUnit.MILLISECONDS);
-		log("done waiting for import to complete");
+		log("done waiting for import to completerater");
 
 		IProject project = wsr.getProject("test");
 		if (!project.exists()) {
-			project.create(null);
+			synchronously("create project", project::create);
 		}
-		project.open(null);
+		synchronously("open project", project::open);
 		IJavaProject javaProject = JavaCore.create(project);
 
 		IFolder sourceFolder = project.getFolder("src");
 		if (!sourceFolder.exists()) {
-			sourceFolder.create(true, true, null);
+			synchronously("create src", monitor -> sourceFolder.create(true, true, monitor));
 		}
 
-		IPackageFragmentRoot root = javaProject.getPackageFragmentRoot(sourceFolder);
-		pack = root.createPackageFragment("test", false, null);
 		Job.getJobManager().join(ResourcesPlugin.FAMILY_AUTO_BUILD, null);
+
+		IPackageFragmentRoot root = javaProject.getPackageFragmentRoot(sourceFolder);
+		synchronously("createPackageFragment", monitor -> pack = root.createPackageFragment("test", false, monitor));
+
+		log("About to start building");
+		synchronously(
+				monitor -> ResourcesPlugin.getWorkspace().build(IncrementalProjectBuilder.INCREMENTAL_BUILD, monitor));
+//		Central.invalidateIndex();
+//		Central.needsIndexing();
+//		log("Initiating build");
+//		for (IProject current : wsr.getProjects()) {
+//			log("Attempting to build " + current.getName());
+//			Project bndProject = Central.getProject(current);
+//			if (bndProject == null) {
+//				continue;
+//			}
+//			bndProject.build();
+//			if (current.getName().equals("cnf")) {
+//				bndProject.getWorkspace().refresh();
+//			}
+//		}
+		log("Finished waiting for build");
 	}
 
 	@BeforeEach
 	void before() throws Exception {
 		sut = sutClass.newInstance();
-	}
-
-	@Test
-	void testExample() throws Exception {
-		proposalsFor(51, 7, "Something",
-				"package test; import org.osgi.framework.Bundle; import java.util.ArrayList; public class Something { ArrayList<?> myList; "
-						+ "public static void main(String[] args) {\n" + "		ArrayList<String> al = null;\n"
-						+ "		int j =0;\n" + "		System.out.println(j);\n" + "		System.out.println(al);\r\n"
-						+ "	}}");
 	}
 
 	private static final String DEFAULT_CLASS_NAME = "Test";
@@ -297,10 +352,16 @@ public class BuildpathQuickFixProcessorTest {
 
 	@Disabled("Not yet implemented")
 	@Test
-	public void withInnerType_suggestsBundles(SoftAssertions softly) {
+	public void withSimpleInnerType_suggestsBundles(SoftAssertions softly) {
 		this.softly = softly;
-		assertThatContainsFrameworkBundles(proposalsForUndefType("ListenerHook.ListenerInfo"),
-				"org.osgi.framework.hooks.service.ListenerHook.ListenerInfo");
+		assertThatContainsListenerInfoSuggestions(proposalsForUndefType("ListenerInfo"));
+	}
+
+	@Disabled("Not yet implemented")
+	@Test
+	public void withPartlyQualifiedInnerType_suggestsBundles(SoftAssertions softly) {
+		this.softly = softly;
+		assertThatContainsListenerInfoSuggestions(proposalsForUndefType("ListenerHook.ListenerInfo"));
 	}
 
 	@Test
@@ -345,11 +406,10 @@ public class BuildpathQuickFixProcessorTest {
 		assertThatContainsBundleActivatorSuggestions(proposalsForUndefType("org.osgi.framework.BundleActivator[]"));
 	}
 
-	@Disabled("Not yet implemented")
 	@Test
 	public void withFQType_andOneLevelPackage_suggestsBundles(SoftAssertions softly) {
 		this.softly = softly;
-		assertThatContainsBundleActivatorSuggestions(proposalsForUndefType("test.BundleActivator"));
+		assertThatContainsMyClassSuggestions(proposalsForUndefType("simple.MyClass"));
 	}
 
 	@Disabled("Not yet implemented")
@@ -369,7 +429,7 @@ public class BuildpathQuickFixProcessorTest {
 
 //	@Test
 	// Force Eclipse AST to generate a QualifiedType
-//	public void getCorrections_withParameterisedOuterType_andMarkerOnInner_suggestsBundles() {
+//	public void withParameterisedOuterType_andMarkerOnInner_suggestsBundles() {
 //		// Due to the structure of QualifiedType (the qualifier is a Type rather
 //		// than simply a Name), it becomes
 //		// a little more complicated to recurse back through the type definition
@@ -383,33 +443,182 @@ public class BuildpathQuickFixProcessorTest {
 //			proposalsForUndefType("org.osgi.framework.BundleActivator<String>.`Inner'.@NotNull BundleActivator"));
 //	}
 
+	@Disabled("Not yet implemented")
 	@Test
 	public void withAnnotatedFQArrayType_suggestsBundles(SoftAssertions softly) {
 		this.softly = softly;
-		assertThatContainsBundleActivatorSuggestions(proposalsForUndefType("org.osgi.framework.@NotNull BundleActivator[]"));
+		assertThatContainsBundleActivatorSuggestions(
+				proposalsForUndefType("org.osgi.framework.@NotNull BundleActivator[]"));
 	}
 
+	@Disabled("Not yet implemented")
 	@Test
 	public void withAnnotatedFQDoubleArrayType_suggestsBundles(SoftAssertions softly) {
 		this.softly = softly;
-		assertThatContainsBundleActivatorSuggestions(proposalsForUndefType("org.osgi.framework.@NotNull BundleActivator[][]"));
+		assertThatContainsBundleActivatorSuggestions(
+				proposalsForUndefType("org.osgi.framework.@NotNull BundleActivator[][]"));
 	}
 
 	@Test
-	public void withParameter_suggestsBundles(SoftAssertions softly) {
+	public void withSimpleUnannotatedParameter_suggestsBundles(SoftAssertions softly) {
 		this.softly = softly;
-		assertThatContainsBundleActivatorSuggestions(
-			proposalsForUndefType("List<org.osgi.framework.@NotNull BundleActivator>"));
+		assertThatContainsBundleActivatorSuggestions(proposalsForUndefType("List<BundleActivator>"));
 	}
 
+	@Test
+	public void withSimpleAnnotatedParameter_suggestsBundles(SoftAssertions softly) {
+		this.softly = softly;
+		assertThatContainsBundleActivatorSuggestions(proposalsForUndefType("List<@NotNull BundleActivator>"));
+	}
+
+	@Test
+	public void withFQUnannotatedParameter_suggestsBundles(SoftAssertions softly) {
+		this.softly = softly;
+		assertThatContainsBundleActivatorSuggestions(proposalsForUndefType("List<org.osgi.framework.BundleActivator>"));
+	}
+
+	@Disabled("Not yet implemented")
+	@Test
+	public void withFQAnnotatedParameter_suggestsBundles(SoftAssertions softly) {
+		this.softly = softly;
+		assertThatContainsBundleActivatorSuggestions(
+				proposalsForUndefType("List<org.osgi.framework.@NotNull BundleActivator>"));
+	}
+
+	@Test
+	public void withFQWildcardBound_suggestsBundles(SoftAssertions softly) {
+		this.softly = softly;
+		assertThatContainsBundleActivatorSuggestions(
+				proposalsForUndefType("List<? extends org.osgi.framework.BundleActivator>"));
+	}
+
+	@Disabled("Not yet implemented")
+	@Test
+	public void withFQAnnotatedWildcardBound_suggestsBundles(SoftAssertions softly) {
+		this.softly = softly;
+		assertThatContainsBundleActivatorSuggestions(
+				proposalsForUndefType("List<? extends org.osgi.framework.@NotNull BundleActivator>"));
+	}
+
+	@Test
+	public void withUnqualifiedNameType_returnsNull(SoftAssertions softly) {
+		// If the type is a simple name, it must refer to a type and not a
+		// package; therefore don't provide package
+		// import suggestions even if we have a package with the matching name.
+		softly.assertThat(proposalsForUndefType("Test")).as("capitalized").isNull();
+		softly.assertThat(proposalsForUndefType("test")).as("uncapitalized").isNull();
+	}
+
+	@Disabled("Not yet implemented")
+	@Test
+	public void withParameterizedType_thatLooksLikePackage_returnsNull() {
+		// FIXME: need an uncapitalised class definition with an inner class to properly
+		// exercise this test.
+		assertThat(proposalsForUndefType("org.osgi.framework<String>.BundleActivator")).isNull();
+	}
+
+	@Test
+	public void withNoMatches_returnsNull() {
+		assertThat(proposalsForImport("my.unknown.package.*")).isNull();
+	}
+
+	@Disabled("Need an alternate package to import from")
+	@Test
+	public void withOnDemandImport_altPackage_suggestsBundles() {
+//		AddBundleCompletionProposal[] props = proposalsForImport("`org.eclipse'.ui.*");
+//		assertThat(props).hasSize(eclipseBundles.size())
+//			.haveExactly(1, allOf(suggestsBundle("my.test.bundle", "Repo 1"), withRelevance(ADD_BUNDLE)))
+//			.haveExactly(1,
+//				allOf(suggestsBundle("my.eclipse.bundle", WORKSPACE_REPO), withRelevance(ADD_BUNDLE_WORKSPACE)));
+	}
+
+//	@Test
+//	public void withOnlyIrrelvantProblems_skipsAll_andReturnsNull() {
+//		List<IProblemLocation> locs = getProblems("import `org.`osgi'.framework'.*", UnusedImport, AmbiguousType);
+//
+//		assertThat(proposalsFor(locs)).isNull();
+//	}
+//
+//	@Test
+//	public void skipsIrrelevantProblems_andReturnsBundles() {
+//		List<IProblemLocation> locs = getProblems("import `org.osgi'`.framework'.*", ImportNotFound, UnusedImport);
+//
+//		assertThatContainsFrameworkBundles(proposalsFor(locs));
+//	}
+//
+//	@Test
+//	public void withMarkerInMiddle_suggestsBundles() {
+//		assertThatContainsFrameworkBundles(proposalsForImport("org.`osgi.'framework.*"));
+//	}
+//
+//	@Test
+//	public void withMarkerAroundWildcard_suggestsBundles() {
+//		assertThatContainsFrameworkBundles(proposalsForImport("org.`osgi.framework.*'"));
+//	}
+//
+//	@Test
+//	public void withMarkerAroundClass_suggestsBundles() {
+//		assertThatContainsFrameworkBundles(proposalsForImport("org.`osgi.framework.BundleActivator'"));
+//	}
+//
+//	@Test
+//	public void withMarkerAroundStatic_suggestsBundles() {
+//		assertThatContainsFrameworkBundles(proposalsForImport("`static org.osgi.framework'.Clazz.member"));
+//	}
+//
+	@Test
+	public void withClassImport_suggestsBundles(SoftAssertions softly) {
+		this.softly = softly;
+		assertThatContainsBundleActivatorSuggestions(proposalsForImport("org.osgi.framework.BundleActivator"));
+	}
+
+	@Disabled("Not yet implemented")
+	@Test
+	public void withInnerClassImport_suggestsBundles(SoftAssertions softly) {
+		this.softly = softly;
+		assertThatContainsListenerInfoSuggestions(
+				proposalsForImport("org.osgi.framework.hooks.service.ListenerHook.ListenerInfo"));
+	}
+
+	@Test
+	public void withOnDemandImport_suggestsBundles(SoftAssertions softly) {
+		this.softly = softly;
+		assertThatContainsFrameworkBundles(proposalsForImport("org.osgi.framework.*"), "org.osgi.framework");
+	}
+
+	@Test
+	public void withOnDemandStaticImport_suggestsBundles(SoftAssertions softly) {
+		this.softly = softly;
+		assertThatContainsBundleSuggestions(proposalsForImport("static org.osgi.framework.Bundle.*"));
+	}
+
+	@Disabled("Not yet implemented")
+	@Test
+	public void withStaticImport_suggestsBundles(SoftAssertions softly) {
+		this.softly = softly;
+		assertThatContainsBundleSuggestions(proposalsForImport("static org.osgi.framework.Bundle.INSTALLED"));
+	}
 
 	private void assertThatContainsPromiseSuggestions(IJavaCompletionProposal[] proposals) {
 		if (proposals == null) {
 			softly.fail("no proposals returned");
 		} else {
-			softly.assertThat(proposals).withRepresentation(PROPOSAL).hasSize(1).haveExactly(1, suggestsBundle(
-					"org.osgi.util.promise", "1.1.1", "org.osgi.util.promise.Promise"));
+			softly.assertThat(proposals).withRepresentation(PROPOSAL).hasSize(1).haveExactly(1,
+					suggestsBundle("org.osgi.util.promise", "1.1.1", "org.osgi.util.promise.Promise"));
 		}
+	}
+
+	private void assertThatContainsMyClassSuggestions(IJavaCompletionProposal[] proposals) {
+		if (proposals == null) {
+			softly.fail("no proposals returned");
+		} else {
+			softly.assertThat(proposals).withRepresentation(PROPOSAL).hasSize(1).haveExactly(1,
+					suggestsBundle("simple", "1.0.0", "simple.MyClass"));
+		}
+	}
+
+	private void assertThatContainsBundleSuggestions(IJavaCompletionProposal[] proposals) {
+		assertThatContainsFrameworkBundles(proposals, "org.osgi.framework.Bundle");
 	}
 
 	private void assertThatContainsBundleActivatorSuggestions(IJavaCompletionProposal[] proposals) {
@@ -420,6 +629,7 @@ public class BuildpathQuickFixProcessorTest {
 		assertThatContainsFrameworkBundles(proposals, "org.osgi.framework.hooks.service.ListenerHook.ListenerInfo");
 	}
 
+	// This gives us a more complete display when tests fail
 	static Representation PROPOSAL = new StandardRepresentation() {
 		@Override
 		public String toStringOf(Object object) {

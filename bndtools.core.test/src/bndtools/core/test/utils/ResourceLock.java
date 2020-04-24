@@ -1,4 +1,4 @@
-package org.bndtools.core.testutils;
+package bndtools.core.test.utils;
 
 /**
  * Constants for use with Jupiter's {@literal @ResourceLock} annotation.
