@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+	<extension id="bndtools.core.test.product"
+		point="org.eclipse.core.runtime.products">
+		<product name="Bndtools Integration Test"
+			application="org.eclipse.e4.ui.workbench.swt.E4Application">
+		</product>
+	</extension>
+</plugin>
