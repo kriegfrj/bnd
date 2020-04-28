@@ -1,0 +1,37 @@
+-include: bndtools.shared.bndrun
+
+-tester: biz.aQute.tester.junit-platform
+
+-runbundles.win32: \
+	bndtools.core.test;version=snapshot,\
+	assertj-core,\
+	org.opentest4j;version='[1.2.0,1.2.1)',\
+	junit-jupiter-api;version='[5.6.2,5.6.3)',\
+	junit-jupiter-engine;version='[5.6.2,5.6.3)',\
+	junit-jupiter-params;version='[5.6.2,5.6.3)',\
+	junit-platform-commons;version='[1.6.2,1.6.3)',\
+	junit-platform-engine;version='[1.6.2,1.6.3)',\
+	junit-platform-launcher;version='[1.6.2,1.6.3)',\
+	org.eclipse.core.filesystem.win32.x86_64,\
+	org.eclipse.core.resources.win32.x86_64,\
+	org.eclipse.equinox.security.win32.x86_64,\
+	org.eclipse.swt.win32.win32.x86_64,\
+	org.eclipse.ui.win32,\
+	org.osgi.test.common;version='[0.9.0,0.9.1)',\
+	org.osgi.test.junit5;version='[0.9.0,0.9.1)'
+	
+
+-runvm.win32:
+
+-runproperties.win32: \
+	osgi.ws=win32,\
+	osgi.arch=x86_64,\
+	osgi.os=win32
+
+-runproperties.test: \
+	tester.separatethread=true,\
+	tester.trace=true,\
+	tester.continuous=true,\
+	osgi.instance.area.default=${.}/generated/workspace,\
+	bndtools.core.test.workspaces=${.}/resources/
+	
