@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 import org.eclipse.jdt.internal.launching.LaunchingPlugin;
 
+import java.io.File;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -69,11 +70,17 @@ import org.junit.jupiter.api.parallel.ResourceLock;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.ServiceRegistration;
 
 import aQute.bnd.build.Project;
+import aQute.bnd.osgi.Jar;
+import aQute.bnd.service.RepositoryListenerPlugin;
+import aQute.bnd.service.RepositoryPlugin;
 import aQute.lib.exceptions.Exceptions;
 import bndtools.central.Central;
+import bndtools.core.test.Activator;
 
 // All of these tests manipulate the same workspace so they can't run in parallel.
 @Execution(SAME_THREAD)
@@ -130,9 +137,24 @@ public class BuildpathQuickFixProcessorTest {
 				.loadClass("org.bndtools.core.editors.quickfix.BuildpathQuickFixProcessor");
 	}
 
+	static CountDownLatch simpleJar;
+	
+	static ServiceRegistration<RepositoryListenerPlugin> service;
+
 	@BeforeAll
 	static void beforeAll() throws Exception {
 		initSUTClass();
+
+		simpleJar = new CountDownLatch(1);
+
+		Bundle b = FrameworkUtil.getBundle(BuildpathQuickFixProcessorTest.class);
+		System.err.println("b: " + b);
+		BundleContext bc = b.getBundleContext();
+		System.err.println("bc: " + b.getBundleContext());
+		System.err.println("bc: " + bc);
+		bc = Activator.bc;
+		service = bc.registerService(RepositoryListenerPlugin.class, new SimpleListener(), null);
+		
 		// Note: remote possibility of a race condition here
 		if (!PlatformUI.isWorkbenchRunning()) {
 			Display d = PlatformUI.createDisplay();
@@ -144,7 +166,6 @@ public class BuildpathQuickFixProcessorTest {
 			};
 			PlatformUI.createAndRunWorkbench(d, advisor);
 		}
-		Bundle b = FrameworkUtil.getBundle(BuildpathQuickFixProcessorTest.class);
 		Path srcRoot = Paths.get("./resources/");
 //		Path srcRoot = Paths.get(b.getBundleContext().getProperty("bndtools.core.test.workspaces"));
 		Path ourRoot = srcRoot.resolve("org/bndtools/core/editors/quickfix");
@@ -214,9 +235,41 @@ public class BuildpathQuickFixProcessorTest {
 //				bndProject.getWorkspace().refresh();
 //			}
 //		}
-		log("Finished waiting for build");
+		log("Finished waiting for build, waiting for simpleJar");
+		simpleJar.await();
+		log("Done waiting for simpleJar");
 	}
 
+	static class SimpleListener implements RepositoryListenerPlugin {
+
+		@Override
+		public void bundleAdded(RepositoryPlugin repository, Jar jar, File file) {
+			System.err.println("bundleAdded: " + repository + ", " + file);
+			if (file.getName().equals("simple.jar")) {
+				simpleJar.countDown();
+			}
+		}
+
+		@Override
+		public void bundleRemoved(RepositoryPlugin repository, Jar jar, File file) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void repositoryRefreshed(RepositoryPlugin repository) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void repositoriesRefreshed() {
+			// TODO Auto-generated method stub
+			
+		}
+		
+	}
+	
 	@BeforeEach
 	void before() throws Exception {
 		sut = sutClass.newInstance();
