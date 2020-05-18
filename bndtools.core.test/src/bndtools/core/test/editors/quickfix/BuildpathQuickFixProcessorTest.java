@@ -7,6 +7,8 @@ import static org.eclipse.jdt.core.compiler.IProblem.IsClassPathCorrect;
 import static org.eclipse.jdt.core.compiler.IProblem.UndefinedType;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+import org.eclipse.jdt.internal.launching.LaunchingPlugin;
+
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;

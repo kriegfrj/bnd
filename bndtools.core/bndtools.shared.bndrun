@@ -29,7 +29,7 @@
 	eclipse.consoleLog=,\
 	eclipse.product=org.eclipse.sdk.ide,\
 	osgi.console=,\
-	osgi.instance.area.default=../bndtools.test/workspace,\
+	osgi.instance.area=../bndtools.test/workspace,\
 	org.osgi.framework.bootdelegation='javax.net',\
 	logback.configurationFile=${fileuri;${.}/logback.xml}
 
