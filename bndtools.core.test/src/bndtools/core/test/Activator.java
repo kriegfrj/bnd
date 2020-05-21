@@ -1,6 +1,5 @@
 package bndtools.core.test;
 
-import org.eclipse.ui.PlatformUI;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 

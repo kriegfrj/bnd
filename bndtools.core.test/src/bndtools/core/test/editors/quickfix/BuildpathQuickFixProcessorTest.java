@@ -7,8 +7,6 @@ import static org.eclipse.jdt.core.compiler.IProblem.IsClassPathCorrect;
 import static org.eclipse.jdt.core.compiler.IProblem.UndefinedType;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-import org.eclipse.jdt.internal.launching.LaunchingPlugin;
-
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -56,7 +54,6 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.application.WorkbenchAdvisor;
 import org.eclipse.ui.dialogs.IOverwriteQuery;
-import org.eclipse.ui.internal.Workbench;
 import org.eclipse.ui.wizards.datatransfer.FileSystemStructureProvider;
 import org.eclipse.ui.wizards.datatransfer.ImportOperation;
 import org.junit.jupiter.api.BeforeAll;
@@ -68,10 +65,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ResourceLock;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.osgi.framework.Bundle;
-import org.osgi.framework.FrameworkUtil;
 
-import aQute.bnd.build.Project;
 import aQute.lib.exceptions.Exceptions;
 import bndtools.central.Central;
 
@@ -144,7 +138,7 @@ public class BuildpathQuickFixProcessorTest {
 			};
 			PlatformUI.createAndRunWorkbench(d, advisor);
 		}
-		Bundle b = FrameworkUtil.getBundle(BuildpathQuickFixProcessorTest.class);
+//		Bundle b = FrameworkUtil.getBundle(BuildpathQuickFixProcessorTest.class);
 		Path srcRoot = Paths.get("./resources/");
 //		Path srcRoot = Paths.get(b.getBundleContext().getProperty("bndtools.core.test.workspaces"));
 		Path ourRoot = srcRoot.resolve("org/bndtools/core/editors/quickfix");
@@ -199,7 +193,7 @@ public class BuildpathQuickFixProcessorTest {
 
 		log("About to start building");
 		synchronously(
-				monitor -> ResourcesPlugin.getWorkspace().build(IncrementalProjectBuilder.INCREMENTAL_BUILD, monitor));
+				monitor -> ResourcesPlugin.getWorkspace().build(IncrementalProjectBuilder.FULL_BUILD, monitor));
 //		Central.invalidateIndex();
 //		Central.needsIndexing();
 //		log("Initiating build");
@@ -215,6 +209,7 @@ public class BuildpathQuickFixProcessorTest {
 //			}
 //		}
 		log("Finished waiting for build");
+		Thread.sleep(10000);
 	}
 
 	@BeforeEach

@@ -1,2 +1,3 @@
 org.osgi:org.osgi.framework:1.10.0-SNAPSHOT
-
+org.osgi:org.osgi.test.common:0.9.0-SNAPSHOT
+org.osgi:org.osgi.test.junit5:0.9.0-SNAPSHOT
