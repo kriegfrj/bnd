@@ -10,7 +10,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import org.eclipse.jdt.internal.launching.LaunchingPlugin;
 
 import java.io.File;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -24,6 +26,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.eclipse.core.commands.Category;
 import org.assertj.core.api.Condition;
 import org.assertj.core.api.SoftAssertions;
 import org.assertj.core.api.junit.jupiter.SoftAssertionsExtension;
@@ -54,12 +57,16 @@ import org.eclipse.jdt.ui.text.java.IJavaCompletionProposal;
 import org.eclipse.jdt.ui.text.java.IProblemLocation;
 import org.eclipse.jdt.ui.text.java.IQuickFixProcessor;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.ui.IWorkingSetManager;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.application.WorkbenchAdvisor;
 import org.eclipse.ui.dialogs.IOverwriteQuery;
 import org.eclipse.ui.internal.Workbench;
+import org.eclipse.ui.internal.WorkbenchPlugin;
+import org.eclipse.ui.internal.WorkingSetManager;
 import org.eclipse.ui.wizards.datatransfer.FileSystemStructureProvider;
 import org.eclipse.ui.wizards.datatransfer.ImportOperation;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -82,16 +89,35 @@ import aQute.lib.exceptions.Exceptions;
 import bndtools.central.Central;
 import bndtools.core.test.Activator;
 
+import org.eclipse.e4.core.contexts.IEclipseContext;
+import org.eclipse.e4.core.services.contributions.IContributionFactory;
+import org.eclipse.e4.ui.internal.workbench.E4Workbench;
+import org.eclipse.e4.ui.internal.workbench.ModelServiceImpl;
+import org.eclipse.e4.ui.internal.workbench.UIEventPublisher;
+import org.eclipse.e4.ui.model.application.MApplication;
+import org.eclipse.e4.ui.model.application.MApplicationElement;
+import org.eclipse.e4.ui.model.application.commands.MCommand;
+import org.eclipse.e4.ui.model.application.impl.ApplicationPackageImpl;
+import org.eclipse.e4.ui.model.application.ui.MUIElement;
+import org.eclipse.e4.ui.model.application.ui.basic.MWindow;
+import 	org.eclipse.e4.ui.tests.extensions.HeadlessApplicationExtension;
+import org.eclipse.e4.ui.workbench.IPresentationEngine;
+import org.eclipse.e4.ui.workbench.modeling.EModelService;
+import org.eclipse.emf.common.util.URI;
+import org.eclipse.emf.ecore.resource.Resource;
+import org.eclipse.emf.ecore.resource.ResourceSet;
+import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
+import org.eclipse.m2e.model.edit.pom.Notifier;
+import org.eclipse.e4.core.commands.ECommandService;
+
 // All of these tests manipulate the same workspace so they can't run in parallel.
 @Execution(SAME_THREAD)
 @ResourceLock(TEST_WORKSPACE)
 @ExtendWith(SoftAssertionsExtension.class)
+@ExtendWith(HeadlessApplicationExtension.class)
 public class BuildpathQuickFixProcessorTest {
 	static IPackageFragment pack;
 	static Class<? extends IQuickFixProcessor> sutClass;
-
-//	@BundleContextParameter
-//	BundleContext bc;
 
 	SoftAssertions softly;
 	IQuickFixProcessor sut;
@@ -141,11 +167,125 @@ public class BuildpathQuickFixProcessorTest {
 	
 	static ServiceRegistration<RepositoryListenerPlugin> service;
 
+	
+	
+	protected static void createGUI(MUIElement uiRoot) {
+		renderer.createGui(uiRoot);
+	}
+
+	protected static MApplicationElement createApplicationElement(
+			IEclipseContext appContext) throws Exception {
+		return createApplication(appContext, getURI());
+	}
+
+	protected static String getURI() {
+		return "org.eclipse.ui.workbench/LegacyIDE.e4xmi";
+	}
+
+	static IEclipseContext applicationContext;
+	
+	protected static IPresentationEngine createPresentationEngine(String renderingEngineURI) throws Exception {
+		IContributionFactory contributionFactory = applicationContext
+				.get(IContributionFactory.class);
+		Object newEngine = contributionFactory.create(renderingEngineURI,
+				applicationContext);
+		return (IPresentationEngine) newEngine;
+	}
+
+	private static MApplication createApplication(IEclipseContext appContext,
+			String appURI) throws Exception {
+		URI initialWorkbenchDefinitionInstance = URI.createPlatformPluginURI(
+				appURI, true);
+
+		ResourceSet set = new ResourceSetImpl();
+		set.getPackageRegistry().put("http://MApplicationPackage/",
+				ApplicationPackageImpl.eINSTANCE);
+
+		Resource resource = set.getResource(initialWorkbenchDefinitionInstance,
+				true);
+
+		MApplication application = (MApplication) resource.getContents().get(0);
+		application.setContext(appContext);
+		appContext.set(MApplication.class, application); // XXX
+		appContext.set(EModelService.class, new ModelServiceImpl(appContext));
+
+//		ECommandService cs = appContext.get(ECommandService.class);
+//		Category cat = cs.defineCategory(MApplication.class.getName(),
+//				"Application Category", null); //$NON-NLS-1$
+//		List<MCommand> commands = application.getCommands();
+//		for (MCommand cmd : commands) {
+//			String id = cmd.getElementId();
+//			String name = cmd.getCommandName();
+//			cs.defineCommand(id, name, null, cat, null);
+//		}
+//
+		// take care of generating the contexts.
+		List<MWindow> windows = application.getChildren();
+		for (MWindow window : windows) {
+			E4Workbench.initializeContext(appContext, window);
+		}
+
+		//processPartContributions(application.getContext(), resource);
+
+		renderer = createPresentationEngine(getEngineURI());
+
+		return application;
+	}
+
+	static IPresentationEngine renderer;
+	
+	protected static String getEngineURI() {
+		return "bundleclass://org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.application.HeadlessContextPresentationEngine"; //$NON-NLS-1$
+	}
+
+
+	protected static MApplicationElement applicationElement;
+	protected static EModelService ems;
+	static void setupApp(IEclipseContext applicationContext) throws Exception {
+
+			BuildpathQuickFixProcessorTest.applicationContext = applicationContext;
+			applicationElement = createApplicationElement(applicationContext);
+			ems = applicationContext.get(EModelService.class);
+
+			// Hook the global notifications
+//			final UIEventPublisher ep = new UIEventPublisher(applicationContext);
+//			((Notifier) applicationElement).eAdapters().add(ep);
+//			applicationContext.set(UIEventPublisher.class, ep);
+
+	}
+	
 	@BeforeAll
-	static void beforeAll() throws Exception {
-		initSUTClass();
+	static void beforeAll(IEclipseContext context) throws Exception {
+
+//		Display d = PlatformUI.createDisplay();
+//		WorkbenchAdvisor advisor = new WorkbenchAdvisor() {
+//			@Override
+//			public String getInitialWindowPerspectiveId() {
+//				return null;
+//			}
+//		};
+//		setupApp(context);
+//
+//		Constructor<Workbench> m = Workbench.class.getDeclaredConstructor(Display.class, WorkbenchAdvisor.class, MApplication.class, IEclipseContext.class);
+//		m.setAccessible(true);
+//		WorkbenchPlugin.getDefault().initializeContext(context);
+//		System.err.println("Checking to see if workbench is ready");
+//		if (Workbench.getInstance() == null) {
+//			System.err.println("Creating workbench");
+//			Workbench wb = m.newInstance(d, advisor, (MApplication)applicationElement, context);
+//			System.err.println("Created workbench: " + wb);
+//			assertThat(Workbench.getInstance()).isSameAs(wb);
+//		}
+//		System.err.println("Finished workbench setyp");
+//		
+//		applicationContext.set(IWorkingSetManager.class,
+//				new WorkingSetManager(FrameworkUtil.getBundle(HeadlessApplicationExtension.class).getBundleContext()));
 
 		simpleJar = new CountDownLatch(1);
+
+		System.err.println("............Eclipse context: " + context);
+
+		initSUTClass();
 
 		Bundle b = FrameworkUtil.getBundle(BuildpathQuickFixProcessorTest.class);
 		System.err.println("b: " + b);
@@ -155,17 +295,6 @@ public class BuildpathQuickFixProcessorTest {
 		bc = Activator.bc;
 		service = bc.registerService(RepositoryListenerPlugin.class, new SimpleListener(), null);
 		
-		// Note: remote possibility of a race condition here
-		if (!PlatformUI.isWorkbenchRunning()) {
-			Display d = PlatformUI.createDisplay();
-			WorkbenchAdvisor advisor = new WorkbenchAdvisor() {
-				@Override
-				public String getInitialWindowPerspectiveId() {
-					return null;
-				}
-			};
-			PlatformUI.createAndRunWorkbench(d, advisor);
-		}
 		Path srcRoot = Paths.get("./resources/");
 //		Path srcRoot = Paths.get(b.getBundleContext().getProperty("bndtools.core.test.workspaces"));
 		Path ourRoot = srcRoot.resolve("org/bndtools/core/editors/quickfix");
@@ -240,6 +369,13 @@ public class BuildpathQuickFixProcessorTest {
 		log("Done waiting for simpleJar");
 	}
 
+	@AfterAll
+	static void afterAll() throws Exception {
+//		Method close = Workbench.class.getDeclaredMethod("close", int.class, boolean.class);
+//		close.setAccessible(true);
+//		close.invoke(Workbench.getInstance(), PlatformUI.RETURN_OK, true);
+	}
+	
 	static class SimpleListener implements RepositoryListenerPlugin {
 
 		@Override
