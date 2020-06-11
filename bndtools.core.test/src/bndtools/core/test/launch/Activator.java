@@ -1,53 +1,85 @@
 package bndtools.core.test.launch;
 
-import java.util.Dictionary;
-import java.util.Hashtable;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import org.eclipse.e4.ui.internal.workbench.swt.E4Application;
-//import org.eclipse.e4.ui.internal.workbench.swt.E4Application;
-import org.eclipse.equinox.app.IApplicationContext;
-import org.eclipse.swt.widgets.Display;
-import org.eclipse.ui.PlatformUI;
-import org.eclipse.ui.application.WorkbenchAdvisor;
-import org.eclipse.ui.internal.ide.application.DelayedEventsProcessor;
-import org.eclipse.ui.internal.ide.application.IDEApplication;
-import org.eclipse.ui.internal.ide.application.IDEWorkbenchAdvisor;
+import org.eclipse.osgi.service.runnable.ApplicationLauncher;
+import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.BundleException;
+import org.osgi.framework.Constants;
+import org.osgi.framework.Filter;
+import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.InvalidSyntaxException;
+import org.osgi.framework.ServiceReference;
 import org.osgi.framework.ServiceRegistration;
+import org.osgi.util.tracker.ServiceTracker;
 
-public class Activator implements BundleActivator, Runnable {
-
-	ServiceRegistration<Runnable> reg;
-
+public class Activator implements BundleActivator {
 	@Override
 	public void start(BundleContext context) throws Exception {
-		System.err.println("Registering service!!!");
-		Dictionary<String, Object> dictionary = new Hashtable<>();
-		dictionary.put("main.thread", "true");
-		reg = context.registerService(Runnable.class, this, dictionary);
+		new LauncherTracker(context).open(true);
 	}
 
 	@Override
 	public void stop(BundleContext context) throws Exception {
-		System.err.println("UnRegistering service!!!");
-		reg.unregister();
+	}
+}
+
+class LauncherTracker extends ServiceTracker<Object, ServiceRegistration<ApplicationLauncher>> {
+
+	private final Logger log = Logger.getLogger(Activator.class.getPackage()
+		.getName());
+
+	public LauncherTracker(BundleContext context) {
+		super(context, createFilter(), null);
 	}
 
-	@Override
-	public void run() {
-		Display display = PlatformUI.createDisplay();
-        DelayedEventsProcessor processor = new DelayedEventsProcessor(display);
-
-		WorkbenchAdvisor advisor = new IDEWorkbenchAdvisor(processor);
-
-		System.err.println("Running!");
+	private static Filter createFilter() {
 		try {
-			int retval = PlatformUI.createAndRunWorkbench(display, advisor);
-			System.err.println("platform exited with retval: " + retval);
-		} catch (Exception e) {
-			e.printStackTrace();
+			return FrameworkUtil.createFilter("(&(objectClass=aQute.launcher.Launcher)(launcher.ready=true))"); //$NON-NLS-1$
+		} catch (InvalidSyntaxException e) {
+			throw new RuntimeException(e);
 		}
 	}
 
+	@Override
+	public ServiceRegistration<ApplicationLauncher> addingService(ServiceReference<Object> reference) {
+		// Find and start the Equinox Application bundle
+		boolean found = false;
+		Bundle[] bundles = context.getBundles();
+		for (Bundle bundle : bundles) {
+			if ("org.eclipse.equinox.app".equals(getBsn(bundle))) {
+				found = true;
+				try {
+					bundle.start();
+				} catch (BundleException e) {
+					log.log(Level.SEVERE,
+						"Unable to start bundle org.eclipse.equinox.app. Eclipse application cannot start.", e);
+				}
+				break;
+			}
+		}
+		if (!found)
+			log.warning("Unable to find bundle org.eclipse.equinox.app. Eclipse application will not start.");
+
+		// Register the ApplicationLauncher
+		log.fine("Registering ApplicationLauncher service.");
+		return context.registerService(ApplicationLauncher.class, new BndApplicationLauncher(), null);
+	}
+
+	@Override
+	public void removedService(ServiceReference<Object> reference, ServiceRegistration<ApplicationLauncher> service) {
+		service.unregister();
+	}
+
+	private String getBsn(Bundle bundle) {
+		String bsn = bundle.getHeaders()
+			.get(Constants.BUNDLE_SYMBOLICNAME);
+		int semiColonIndex = bsn.indexOf(';');
+		if (semiColonIndex > -1)
+			bsn = bsn.substring(0, semiColonIndex);
+		return bsn;
+	}
 }

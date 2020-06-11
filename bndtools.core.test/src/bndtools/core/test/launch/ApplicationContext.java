@@ -1,4 +1,4 @@
-package bndtools.core.test;
+package bndtools.core.test.launch;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -8,7 +8,6 @@ import org.eclipse.equinox.app.IApplicationContext;
 import org.osgi.framework.Bundle;
 import org.osgi.service.component.annotations.Component;
 
-@Component
 public class ApplicationContext implements IApplicationContext {
 
 	static final Map<?,?> ARGS;

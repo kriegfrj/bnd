@@ -101,7 +101,6 @@
 	org.apache.xml.serializer;version='[2.7.1,2.7.2)',\
 	org.apache.xmlgraphics;version='[2.2.0,2.2.1)',\
 	org.apiguardian;version='[1.0.0,1.0.1)',\
-	org.bndtools.applaunch;version=snapshot,\
 	org.bndtools.headless.build.manager;version=snapshot,\
 	org.bndtools.headless.build.plugin.ant;version=snapshot,\
 	org.bndtools.headless.build.plugin.gradle;version=snapshot,\
@@ -307,10 +306,15 @@
 	org.eclipse.ui.ide.application;version='[1.3.100,1.3.101)',\
 	org.eclipse.urischeme;version='[1.0.100,1.0.101)',\
 	org.osgi.test.common,\
-	org.osgi.test.junit5	
+	org.osgi.test.junit5,\
+	bndtools.core.test.launch
 	
+# The service bundles need to be started before you attempt to start
+# the application itself, otherwise some of the necessary services (eg,
+# IEventBroker) will not be running in time.
 -runbundles+: *service*;startlevel=1,\
-	bndtools.core.test.launch;startlevel=2,\
+	org.eclipse.equinox.app;startlevel=2,\
+	bndtools.core.test.launch;startlevel=3,\
 	bndtools.core.test*;startlevel=5,\
 	bndtools.*;startlevel=4,\
 	*;startlevel=3
