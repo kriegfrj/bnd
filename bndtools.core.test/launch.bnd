@@ -1,0 +1,3 @@
+-includeresource: {plugin.xml=_plugin.xml}
+-privatepackage: bndtools.core.test.launch
+Bundle-Activator: bndtools.core.test.launch.Activator

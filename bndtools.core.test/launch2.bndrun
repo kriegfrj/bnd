@@ -347,12 +347,13 @@
 	osgi.arch=x86_64,\
 	osgi.os=win32
 
+#	eclipse.application=org.eclipse.ui.ide.workbench,\
 #	eclipse.application=org.eclipse.e4.ui.workbench.swt.E4Application,\
 #	eclipse.product=bndtools.core.test.product,\
 #	osgi.instance.area.default=${.}/generated/workspace,\
 
 -runproperties: \
-	eclipse.application=org.eclipse.ui.ide.workbench,\
+	eclipse.application=bndtools.integration.test,\
 	eclipse.consoleLog=,\
 	eclipse.product=org.eclipse.sdk.ide,\
 	tester.separatethread=true,\

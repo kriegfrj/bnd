@@ -56,6 +56,7 @@ import org.osgi.util.promise.Deferred;
 import org.osgi.util.promise.Promise;
 import org.osgi.util.promise.PromiseFactory;
 
+import aQute.bnd.annotation.plugin.InternalPluginDefinition;
 import aQute.bnd.build.Project;
 import aQute.bnd.build.Workspace;
 import aQute.bnd.header.Attrs;
@@ -77,9 +78,12 @@ public class Central implements IStartupParticipant {
 
 	private static final ILogger						logger						= Logger.getLogger(Central.class);
 	private static volatile Central						instance					= null;
-	private static volatile Workspace					workspace					= null;
-	private static final Deferred<Workspace>			workspaceQueue				= Processor.getPromiseFactory()
+	private static final Deferred<Workspace>					anyWorkspaceDeferred			= promiseFactory()
 		.deferred();
+	private static volatile Deferred<Workspace>					cnfWorkspaceDeferred		= promiseFactory()
+		.deferred();
+	private static final Memoize<Workspace>						workspace					= Memoize
+		.supplier(Central::createWorkspace);
 
 	private static final Supplier<EclipseWorkspaceRepository>	eclipseWorkspaceRepository				= Memoize
 		.supplier(EclipseWorkspaceRepository::new);
@@ -93,6 +97,7 @@ public class Central implements IStartupParticipant {
 	private final List<ModelListener>					listeners					= new CopyOnWriteArrayList<>();
 
 	private RepositoryListenerPluginTracker				repoListenerTracker;
+	private final InternalPluginTracker							internalPlugins;
 
 	@SuppressWarnings("unused")
 	private static WorkspaceRepositoryChangeDetector	workspaceRepositoryChangeDetector;
@@ -105,6 +110,7 @@ public class Central implements IStartupParticipant {
 				.getBundleContext();
 			Bundle bndlib = FrameworkUtil.getBundle(Workspace.class);
 			auxiliary = new Auxiliary(context, bndlib);
+
 		} catch (Exception e) {
 			// ignore
 		}
@@ -119,6 +125,8 @@ public class Central implements IStartupParticipant {
 	public Central() {
 		bundleContext = FrameworkUtil.getBundle(Central.class)
 			.getBundleContext();
+		internalPlugins = new InternalPluginTracker(bundleContext);
+
 	}
 
 	@Override
@@ -127,6 +135,7 @@ public class Central implements IStartupParticipant {
 
 		repoListenerTracker = new RepositoryListenerPluginTracker(bundleContext);
 		repoListenerTracker.open();
+		internalPlugins.open();
 
 	}
 
@@ -136,7 +145,7 @@ public class Central implements IStartupParticipant {
 
 		instance = null;
 
-		Workspace ws = workspace;
+		Workspace ws = workspace.peek();
 		if (ws != null) {
 			ws.close();
 		}
@@ -147,6 +156,7 @@ public class Central implements IStartupParticipant {
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
+		internalPlugins.close();
 	}
 
 	public static Central getInstance() {
@@ -176,18 +186,19 @@ public class Central implements IStartupParticipant {
 	}
 
 	public static IFile getWorkspaceBuildFile() throws Exception {
-		File file = Central.getWorkspace()
-			.getPropertiesFile();
-		IFile[] matches = ResourcesPlugin.getWorkspace()
-			.getRoot()
-			.findFilesForLocationURI(file.toURI());
-
-		if (matches == null || matches.length != 1) {
+		Workspace ws = Central.getWorkspace();
+		if ((ws == null) || (ws.isDefaultWorkspace())) {
+			return null;
+		}
+		File file = ws.getPropertiesFile();
+		IPath path = toPathMustBeInEclipseWorkspace(file);
+		if (path == null) {
 			logger.logError("Cannot find workspace location for bnd configuration file " + file, null);
 			return null;
 		}
-
-		return matches[0];
+		return ResourcesPlugin.getWorkspace()
+			.getRoot()
+			.getFile(path);
 	}
 
 	public static EclipseWorkspaceRepository getEclipseWorkspaceRepository() {
@@ -213,80 +224,113 @@ public class Central implements IStartupParticipant {
 			throw new IllegalStateException("Central is not initialised");
 		}
 		Workspace ws;
-		boolean resolve;
-		synchronized (workspaceQueue) {
-			ws = workspace;
-			File workspaceDirectory = getWorkspaceDirectory();
-			if (ws != null) {
-				if (workspaceDirectory != null && ws.isDefaultWorkspace()) {
-					ws.setFileSystem(workspaceDirectory, Workspace.CNFDIR);
-					ws.refresh();
-					resolve = !workspaceQueue.getPromise()
-						.isDone();
-				} else if (workspaceDirectory == null && !ws.isDefaultWorkspace()) {
-					ws.setFileSystem(Workspace.BND_DEFAULT_WS, Workspace.CNFDIR);
-					ws.refresh();
-					resolve = false;
-				} else {
-					resolve = false;
+		java.util.function.Consumer<Workspace> resolve = null;
+		synchronized (workspace) {
+			if (workspace.peek() == null) { // No workspace has been created
+				ws = workspace.get();
+				// Resolve with new workspace
+				resolve = anyWorkspaceDeferred::resolve;
+				if (!ws.isDefaultWorkspace()) {
+					resolve = resolve.andThen(cnfWorkspaceDeferred::resolve);
 				}
 			} else {
-				try {
-					Workspace.setDriver(Constants.BNDDRIVER_ECLIPSE);
-					Workspace.addGestalt(Constants.GESTALT_INTERACTIVE, new Attrs());
-
-					if (workspaceDirectory == null) {
-						// there is no cnf project. So
-						// we create a temp workspace
-						ws = Workspace.createDefaultWorkspace();
-						resolve = false;
-					} else {
-						ws = Workspace.getWorkspace(workspaceDirectory);
-						resolve = true;
-					}
-
-					ws.setOffline(new BndPreferences().isWorkspaceOffline());
-
-					ws.addBasicPlugin(new SWTClipboard());
-					ws.addBasicPlugin(new WorkspaceListener(ws));
-					ws.addBasicPlugin(getInstance().repoListenerTracker);
-					ws.addBasicPlugin(getEclipseWorkspaceRepository());
-					ws.addBasicPlugin(new JobProgress());
-
-					// Initialize projects in synchronized block
-					ws.getBuildOrder();
-
-					// Monitor changes in cnf so we can refresh the workspace
-					addCnfChangeListener(ws);
-
-					workspaceRepositoryChangeDetector = new WorkspaceRepositoryChangeDetector(ws);
-
-					// The workspace has been initialized fully, set the field
-					// now
-					workspace = ws;
-				} catch (final Exception e) {
-					if (ws != null) {
-						ws.close();
-					}
-					logger.logError("Init of workspace", e);
-					throw e;
+				ws = workspace.get();
+				// get the parent directory of the "cnf" project, if there is
+				// one
+				File workspaceDirectory = getWorkspaceDirectory();
+				// Check to see if we need to convert it...
+				if (workspaceDirectory != null && ws.isDefaultWorkspace()) {
+					// There is a "cnf" project and the current workspace is
+					// the default, so switch the workspace to the directory
+					ws.setFileSystem(workspaceDirectory, Workspace.CNFDIR);
+					ws.forceRefresh();
+					ws.refresh();
+					ws.refreshProjects();
+					resolve = cnfWorkspaceDeferred::resolve;
+				} else if (workspaceDirectory == null && !ws.isDefaultWorkspace()) {
+					// There is no "cnf" project and the current workspace is
+					// not the default, so switch the workspace to the default
+					cnfWorkspaceDeferred = promiseFactory()
+						.deferred();
+					ws.setFileSystem(Workspace.BND_DEFAULT_WS, Workspace.CNFDIR);
+					ws.forceRefresh();
+					ws.refresh();
+					ws.refreshProjects();
 				}
 			}
 		}
-		if (resolve)
-			workspaceQueue.resolve(ws); // notify onWorkspaceInit callbacks
+		if (resolve != null) { // resolve deferred if requested
+			resolve.accept(ws);
+		}
 		return ws;
 	}
 
-	public static Promise<Workspace> onWorkspace(Consumer<Workspace> callback) {
-		Promise<Workspace> p = workspaceQueue.getPromise();
-		return p.thenAccept(workspace -> callback.accept(workspace))
-			.onFailure(failure -> logger.logError("onWorkspace callback failed", failure));
+	private static Workspace createWorkspace() {
+		Workspace ws = null;
+		try {
+			Workspace.setDriver(Constants.BNDDRIVER_ECLIPSE);
+			Workspace.addGestalt(Constants.GESTALT_INTERACTIVE, new Attrs());
+			File workspaceDirectory = getWorkspaceDirectory();
+			if (workspaceDirectory == null) {
+				// There is no "cnf" project so we create a default
+				// workspace
+				ws = Workspace.createDefaultWorkspace();
+			} else {
+				// There is a "cnf" project so we create a normal
+				// workspace
+				ws = new Workspace(workspaceDirectory);
+			}
+
+			ws.setOffline(new BndPreferences().isWorkspaceOffline());
+
+			ws.addBasicPlugin(new SWTClipboard());
+			ws.addBasicPlugin(new WorkspaceListener(ws));
+			ws.addBasicPlugin(getInstance().repoListenerTracker);
+			ws.addBasicPlugin(getEclipseWorkspaceRepository());
+			ws.addBasicPlugin(new JobProgress());
+
+			// Initialize projects in synchronized block
+			ws.getBuildOrder();
+
+			// Monitor changes in cnf so we can refresh the workspace
+			addCnfChangeListener(ws);
+
+			workspaceRepositoryChangeDetector = new WorkspaceRepositoryChangeDetector(ws);
+			return ws;
+		} catch (Exception e) {
+			if (ws != null) {
+				ws.close();
+			}
+			logger.logError("Workspace creation failure", e);
+			throw Exceptions.duck(e);
+		}
 	}
 
-	public static Promise<Workspace> onWorkspaceAsync(Consumer<Workspace> callback) {
-		Promise<Workspace> p = workspaceQueue.getPromise();
-		return p.then(resolved -> {
+	public static Promise<Workspace> onAnyWorkspace(Consumer<? super Workspace> callback) {
+		return callback(anyWorkspaceDeferred.getPromise(), callback, "onAnyWorkspace callback failed");
+	}
+
+	public static Promise<Workspace> onCnfWorkspace(Consumer<? super Workspace> callback) {
+		return callback(cnfWorkspaceDeferred.getPromise(), callback, "onCnfWorkspace callback failed");
+	}
+
+	private static Promise<Workspace> callback(Promise<Workspace> promise, Consumer<? super Workspace> callback,
+		String failureMessage) {
+		return promise.thenAccept(callback)
+			.onFailure(failure -> logger.logError(failureMessage, failure));
+	}
+
+	public static Promise<Workspace> onAnyWorkspaceAsync(Consumer<? super Workspace> callback) {
+		return callbackAsync(anyWorkspaceDeferred.getPromise(), callback, "onAnyWorkspaceAsync callback failed");
+	}
+
+	public static Promise<Workspace> onCnfWorkspaceAsync(Consumer<? super Workspace> callback) {
+		return callbackAsync(cnfWorkspaceDeferred.getPromise(), callback, "onCnfWorkspaceAsync callback failed");
+	}
+
+	private static Promise<Workspace> callbackAsync(Promise<Workspace> promise, Consumer<? super Workspace> callback,
+		String failureMessage) {
+		return promise.then(resolved -> {
 			Workspace workspace = resolved.getValue();
 			Deferred<Workspace> completion = promiseFactory().deferred();
 			Display.getDefault()
@@ -300,25 +344,35 @@ public class Central implements IStartupParticipant {
 				});
 			return completion.getPromise();
 		})
-			.onFailure(failure -> logger.logError("onWorkspaceAsync callback failed", failure));
+			.onFailure(failure -> logger.logError(failureMessage, failure));
 	}
 
 	public static PromiseFactory promiseFactory() {
 		return Processor.getPromiseFactory();
 	}
 
-	public static boolean isWorkspaceInited() {
-		return workspace != null;
+	public static boolean hasAnyWorkspace() {
+		return anyWorkspaceDeferred.getPromise()
+			.isDone();
 	}
 
+	public static boolean hasCnfWorkspace() {
+		return cnfWorkspaceDeferred.getPromise()
+			.isDone();
+	}
+
+	/**
+	 * Returns the Bnd Workspace directory <em>IF</em> there is a "cnf" project
+	 * in the Eclipse workspace.
+	 *
+	 * @return The returned directory is the parent of the "cnf" project's
+	 *         directory. Otherwise, {@code null}.
+	 */
 	private static File getWorkspaceDirectory() throws CoreException {
 		IWorkspaceRoot eclipseWorkspace = ResourcesPlugin.getWorkspace()
 			.getRoot();
 
-		IProject cnfProject = eclipseWorkspace.getProject(Workspace.BNDDIR);
-		if (!cnfProject.exists())
-			cnfProject = eclipseWorkspace.getProject(Workspace.CNFDIR);
-
+		IProject cnfProject = eclipseWorkspace.getProject(Workspace.CNFDIR);
 		if (cnfProject.exists()) {
 			if (!cnfProject.isOpen())
 				cnfProject.open(null);
@@ -599,6 +653,9 @@ public class Central implements IStartupParticipant {
 	 */
 
 	public static IResource toResource(File file) {
+		if (file == null)
+			return null;
+
 		IWorkspaceRoot root = ResourcesPlugin.getWorkspace()
 			.getRoot();
 		return toFullPath(file).map(p -> file.isDirectory() ? root.getFolder(p) : root.getFile(p))
@@ -796,5 +853,13 @@ public class Central implements IStartupParticipant {
 			}
 		});
 		return errors.isZero();
+	}
+
+	public static List<InternalPluginDefinition> getInternalPluginDefinitions() {
+		return instance.internalPlugins.getTracked()
+			.values()
+			.stream()
+			.flatMap(Collection::stream)
+			.collect(Collectors.toList());
 	}
 }

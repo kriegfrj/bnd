@@ -564,6 +564,20 @@ public class Analyzer extends Processor {
 		return exportedByAnnotation;
 	}
 
+	// Handle org.osgi.annotation.bundle.Referenced annotation
+	private Set<PackageRef> referencesByAnnotation(Clazz clazz) {
+		TypeRef referencedAnnotation = descriptors.getTypeRef("org/osgi/annotation/bundle/Referenced");
+		if (clazz.annotations()
+			.contains(referencedAnnotation)) {
+			Set<PackageRef> referenced = clazz.annotations(referencedAnnotation.getBinary())
+				.flatMap(ann -> ann.stream("value", TypeRef.class))
+				.map(TypeRef::getPackageRef)
+				.collect(toSet());
+			return referenced;
+		}
+		return Collections.emptySet();
+	}
+
 	public Clazz getPackageInfo(PackageRef packageRef) {
 		TypeRef tr = descriptors.getPackageInfo(packageRef);
 		try {
@@ -1295,6 +1309,14 @@ public class Analyzer extends Processor {
 		Instructions instructions = new Instructions(namesection);
 		Set<String> resources = new HashSet<>(dot.getResources()
 			.keySet());
+		// Support package attributes. See
+		// https://docs.oracle.com/javase/8/docs/technotes/guides/versioning/spec/versioning2.html#wp89936
+		MapStream.of(dot.getDirectories())
+			.filterValue(mdir -> Objects.nonNull(mdir) && !mdir.isEmpty())
+			.keys()
+			.map(d -> d.concat(
+				"/"))
+			.forEach(resources::add);
 
 		//
 		// For each instruction, iterator over the resources and filter
@@ -1312,8 +1334,12 @@ public class Analyzer extends Processor {
 				String path = i.next();
 				// For each resource
 
-				if (instr.getKey()
-					.matches(path)) {
+				Instruction instruction = instr.getKey();
+
+				if (path.endsWith("/") && !instruction.toString()
+					.endsWith("/")) {
+					// continue
+				} else if (instruction.matches(path)) {
 
 					// Instruction matches the resource
 
@@ -2630,10 +2656,10 @@ public class Analyzer extends Processor {
 
 						// Look at the referred packages
 						// and copy them to our baseline
-						Set<PackageRef> refs = Create.set();
-						for (PackageRef p : clazz.getReferred()) {
+						Set<PackageRef> refs = new LinkedHashSet<>(clazz.getReferred());
+						refs.addAll(referencesByAnnotation(clazz));
+						for (PackageRef p : refs) {
 							referred.put(p);
-							refs.add(p);
 						}
 						refs.remove(packageRef);
 						uses.addAll(packageRef, refs);

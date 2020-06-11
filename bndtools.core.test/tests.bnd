@@ -1,0 +1,5 @@
+
+Test-Cases: ${classes;CONCRETE;PUBLIC;NAMED;*Test*} 
+
+Private-Package: bndtools.core.test*,org.eclipse.e4.ui.tests*
+Bundle-Activator: bndtools.core.test.Activator

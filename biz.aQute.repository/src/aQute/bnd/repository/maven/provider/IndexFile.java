@@ -29,6 +29,7 @@ import org.osgi.util.promise.PromiseFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import aQute.bnd.maven.MavenCapability;
 import aQute.bnd.osgi.Constants;
 import aQute.bnd.osgi.Jar;
 import aQute.bnd.osgi.Macro;
@@ -73,7 +74,7 @@ class IndexFile {
 	final Reporter								reporter;
 	final PromiseFactory						promiseFactory;
 	final Map<Archive, Resource>				archives	= new ConcurrentHashMap<>();
-	final String[]								multi;
+	final Set<String>							multi;
 	final String								source;
 
 	private volatile long						lastModified;
@@ -87,7 +88,7 @@ class IndexFile {
 	 * Constructor
 	 */
 	IndexFile(Processor domain, Reporter reporter, File file, String source, IMavenRepo repo,
-		PromiseFactory promiseFactory, String... multi) throws Exception {
+		PromiseFactory promiseFactory, Set<String> multi) throws Exception {
 		this.source = source;
 		this.domain = (domain != null) ? domain : new Processor();
 		this.replacer = this.domain.getReplacer();
@@ -314,11 +315,11 @@ class IndexFile {
 	}
 
 	private boolean isMulti(String name) {
-		if (multi == null)
+		if (multi.isEmpty())
 			return false;
 
 		String[] extension = Strings.extension(name.toLowerCase());
-		return extension.length == 2 && Strings.in(multi, extension[1]);
+		return extension.length == 2 && multi.contains(extension[1]);
 	}
 
 	private Map<Archive, Resource> parseSingle(Archive archive, File single) throws Exception {
@@ -331,6 +332,8 @@ class IndexFile {
 			BridgeRepository.addInformationCapability(rb, name, version.getOSGiVersion(), repo.toString(),
 				Constants.NOT_A_BUNDLE_S);
 		}
+		MavenCapability.addMavenCapability(rb, archive.revision.group, archive.revision.artifact,
+			archive.revision.version, archive.classifier, repo.toString());
 		Resource resource = rb.build();
 		return Collections.singletonMap(archive, resource);
 	}
@@ -458,6 +461,8 @@ class IndexFile {
 		String bsn = archive.getWithoutVersion();
 		MavenVersion version = archive.revision.version;
 		BridgeRepository.addInformationCapability(rb, bsn, version.getOSGiVersion(), repo.toString(), msg);
+		MavenCapability.addMavenCapability(rb, archive.revision.group, archive.revision.artifact,
+			archive.revision.version, archive.classifier, repo.toString());
 		return rb.build();
 	}
 

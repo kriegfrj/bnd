@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -20,6 +21,12 @@ public class MapsTest {
 		Map<String, String> map = Maps.of();
 		assertThat(map).hasSize(0)
 			.isEmpty();
+		assertThat(map.containsKey("k3")).isFalse();
+		assertThat(map.containsKey(null)).isFalse();
+		assertThat(map.containsValue("v3")).isFalse();
+		assertThat(map.containsValue(null)).isFalse();
+		assertThat(map.get("k3")).isEqualTo(null);
+		assertThat(map.get(null)).isEqualTo(null);
 		assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(() -> map.put("a", "b"));
 		assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(() -> map.remove("a"));
 		assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(() -> map.clear());
@@ -218,9 +225,16 @@ public class MapsTest {
 
 	@Test
 	public void entries() {
-		Map<String, String> map = Maps.ofEntries(new SimpleEntry<>("k1", "v1"));
-		assertThat(map).hasSize(1)
-			.containsEntry("k1", "v1");
+		@SuppressWarnings("unchecked")
+		Entry<String, String>[] entries = new Entry[2];
+		entries[0] = new SimpleEntry<String, String>("k1", "v1");
+		entries[1] = new SimpleEntry<String, String>("k2", "v2");
+		Map<String, String> map = Maps.ofEntries(entries);
+		entries[0].setValue("changed");
+		entries[1] = new SimpleEntry<String, String>("changed", "v2");
+		assertThat(map).hasSize(2)
+			.containsEntry("k1", "v1")
+			.containsEntry("k2", "v2");
 		assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(() -> map.put("a", "b"));
 		assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(() -> map.remove("a"));
 		assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(() -> map.remove("k1"));
@@ -239,6 +253,7 @@ public class MapsTest {
 		source.put("k1", "v1");
 		source.put("k2", "v2");
 		Map<String, String> map = Maps.copyOf(source);
+		source.put("k2", "changed");
 		assertThat(map).hasSize(2)
 			.containsEntry("k1", "v1")
 			.containsEntry("k2", "v2");
@@ -259,6 +274,90 @@ public class MapsTest {
 		Map<String, String> source = Maps.of("k1", "v1", "k2", "v2");
 		Map<String, String> map = Maps.copyOf(source);
 		assertThat(map).isSameAs(source);
+	}
+
+	@Test
+	public void contains_key() {
+		Map<String, String> map = Maps.of("k1", "v1", "k2", "v2");
+		assertThat(map.containsKey("k1")).isTrue();
+		assertThat(map.containsKey("k2")).isTrue();
+		assertThat(map.containsKey("k3")).isFalse();
+		assertThat(map.containsKey(null)).isFalse();
+	}
+
+	@Test
+	public void contains_value() {
+		Map<String, String> map = Maps.of("k1", "v1", "k2", "v2");
+		assertThat(map.containsValue("v1")).isTrue();
+		assertThat(map.containsValue("v2")).isTrue();
+		assertThat(map.containsValue("v3")).isFalse();
+		assertThat(map.containsValue(null)).isFalse();
+	}
+
+	@Test
+	public void get() {
+		Map<String, String> map = Maps.of("k1", "v1", "k2", "v2");
+		assertThat(map.get("k1")).isEqualTo("v1");
+		assertThat(map.get("k2")).isEqualTo("v2");
+		assertThat(map.get("k3")).isEqualTo(null);
+		assertThat(map.get(null)).isEqualTo(null);
+	}
+
+	@Test
+	public void hashcode() {
+		Map<String, String> map = Maps.of("k1", "v1", "k2", "v2");
+		Map<String, String> hashMap = new HashMap<>();
+		hashMap.put("k2", "v2");
+		hashMap.put("k1", "v1");
+
+		assertThat(map.hashCode()).isEqualTo(hashMap.hashCode());
+	}
+
+	@Test
+	public void equals() {
+		Map<String, String> map = Maps.of("k1", "v1", "k2", "v2");
+		Map<String, String> hashMap = new HashMap<>();
+		hashMap.put("k2", "v2");
+		hashMap.put("k1", "v1");
+
+		assertThat(map).isEqualTo(hashMap);
+
+		hashMap = new HashMap<>();
+		hashMap.put("k1", "v1");
+		hashMap.put("k2", "v1");
+		assertThat(map).isNotEqualTo(hashMap);
+
+		hashMap = new HashMap<>();
+		hashMap.put("k1", "v1");
+		hashMap.put("k3", "v3");
+		assertThat(map).isNotEqualTo(hashMap);
+
+		hashMap = new HashMap<>();
+		hashMap.put("k1", "v1");
+		assertThat(map).isNotEqualTo(hashMap);
+
+		hashMap = new HashMap<>();
+		hashMap.put("k1", "v1");
+		hashMap.put("k2", "v2");
+		hashMap.put("k3", "v3");
+		assertThat(map).isNotEqualTo(hashMap);
+	}
+
+	@Test
+	public void entry_set_contains() {
+		Set<Entry<String, String>> entrySet = Maps.of("k1", "v1", "k2", "v2")
+			.entrySet();
+		assertThat(entrySet).containsExactly(new SimpleEntry<>("k1", "v1"), new SimpleEntry<>("k2", "v2"));
+
+		assertThat(entrySet.contains(new SimpleEntry<>("k1", "v1"))).isTrue();
+		assertThat(entrySet.contains(new SimpleEntry<>("k2", "v2"))).isTrue();
+		assertThat(entrySet.contains(new SimpleEntry<>("k1", "v2"))).isFalse();
+		assertThat(entrySet.contains(null)).isFalse();
+
+		entrySet = Maps.<String, String> of()
+			.entrySet();
+		assertThat(entrySet.contains(new SimpleEntry<>("k1", "v2"))).isFalse();
+		assertThat(entrySet.contains(null)).isFalse();
 	}
 
 }

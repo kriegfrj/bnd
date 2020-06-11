@@ -5,14 +5,20 @@ on:
     paths-ignore:
     - 'docs/**'
     - '.github/**/*docs*'
+    - '.github/*.yml'
   pull_request:
     paths-ignore:
     - 'docs/**'
     - '.github/**/*docs*'
+    - '.github/*.yml'
 
 env:
   LC_ALL: en_US.UTF-8
   GRADLE_OPTS: -Dorg.gradle.parallel=true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   JDK8_Linux:
@@ -23,7 +29,6 @@ jobs:
       uses: actions/checkout@v2
     - name: Git Unshallow
       if: (github.repository == 'bndtools/bnd') && (github.event_name != 'pull_request')
-      shell: bash
       run: |
         git fetch --prune --unshallow
         git describe --dirty --always --abbrev=9
@@ -34,7 +39,6 @@ jobs:
       with:
         java-version: 8
     - name: Build
-      shell: bash
       run: |
         ./.github/scripts/build.sh
       env:
@@ -60,7 +64,6 @@ jobs:
       with:
         java-version: ${{ matrix.java }}
     - name: Build
-      shell: bash
       run: |
         ./.github/scripts/build.sh
   JDK8_Local_Rebuild:
@@ -76,6 +79,5 @@ jobs:
       with:
         java-version: 8
     - name: Build
-      shell: bash
       run: |
         ./.github/scripts/rebuild.sh

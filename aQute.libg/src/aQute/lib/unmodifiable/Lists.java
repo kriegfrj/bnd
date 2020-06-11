@@ -1,20 +1,16 @@
 package aQute.lib.unmodifiable;
 
-import static java.util.Objects.requireNonNull;
-
-import java.util.AbstractList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.function.Predicate;
 
+@SuppressWarnings("unchecked")
 public class Lists {
 
 	private Lists() {}
 
 	public static <E> List<E> of() {
-		return new ImmutableList<>();
+		return (List<E>) ImmutableList.EMPTY;
 	}
 
 	public static <E> List<E> of(E e1) {
@@ -59,101 +55,20 @@ public class Lists {
 
 	@SafeVarargs
 	public static <E> List<E> of(E... elements) {
-		return new ImmutableList<>(elements);
+		int length = elements.length;
+		if (length == 0) {
+			return of();
+		}
+		return new ImmutableList<>((E[]) Arrays.copyOf(elements, length, Object[].class));
 	}
 
-	@SuppressWarnings("unchecked")
 	public static <E> List<E> copyOf(Collection<? extends E> collection) {
 		if (collection instanceof ImmutableList) {
 			return (List<E>) collection;
 		}
-		E[] elements = (E[]) collection.toArray();
-		return new ImmutableList<>(elements);
-	}
-
-	static final class ImmutableList<E> extends AbstractList<E> {
-		final E[] elements;
-
-		@SafeVarargs
-		ImmutableList(E... elements) {
-			this.elements = requireNonNull(elements);
-			for (int i = 0, len = elements.length; i < len; i++) {
-				requireNonNull(elements[i]);
-			}
+		if (collection.isEmpty()) {
+			return of();
 		}
-
-		@Override
-		public Iterator<E> iterator() {
-			return new ElementIterator();
-		}
-
-		@Override
-		public int size() {
-			return elements.length;
-		}
-
-		@Override
-		public E get(int index) {
-			return elements[index];
-		}
-
-		@Override
-		public boolean add(E e) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public boolean remove(Object o) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public boolean addAll(Collection<? extends E> collection) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public boolean removeAll(Collection<?> collection) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public boolean retainAll(Collection<?> collection) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public void clear() {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public boolean removeIf(Predicate<? super E> filter) {
-			throw new UnsupportedOperationException();
-		}
-
-		final class ElementIterator implements Iterator<E> {
-			private int index = 0;
-
-			ElementIterator() {}
-
-			@Override
-			public boolean hasNext() {
-				return index < elements.length;
-			}
-
-			@Override
-			public E next() {
-				if (hasNext()) {
-					return elements[index++];
-				}
-				throw new NoSuchElementException();
-			}
-
-			@Override
-			public void remove() {
-				throw new UnsupportedOperationException();
-			}
-		}
+		return new ImmutableList<>((E[]) collection.toArray());
 	}
 }
