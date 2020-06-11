@@ -67,7 +67,6 @@
 	biz.aQute.resolve;version=snapshot,\
 	biz.aQute.tester.junit-platform;version=snapshot,\
 	bndtools.api;version=snapshot,\
-	bndtools.builder;version=snapshot,\
 	bndtools.core;version=snapshot,\
 	bndtools.core.test.tests;version=snapshot,\
 	com.ibm.icu;version='[63.1.0,63.1.1)',\
@@ -203,6 +202,7 @@
 	
 -runbundles+: *service*;startlevel=1,\
 	org.bndtools.applaunch;startlevel=2,\
+	bndtools*;startlevel=4,\
 	*;startlevel=3
 	
 -runproperties.win32: \

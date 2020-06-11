@@ -6,6 +6,7 @@ import static org.eclipse.jdt.core.compiler.IProblem.ImportNotFound;
 import static org.eclipse.jdt.core.compiler.IProblem.IsClassPathCorrect;
 import static org.eclipse.jdt.core.compiler.IProblem.UndefinedType;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
+import static org.osgi.test.common.exceptions.RunnableWithException.asRunnable;
 
 import org.eclipse.jdt.internal.launching.LaunchingPlugin;
 
@@ -112,11 +113,14 @@ import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.m2e.model.edit.pom.Notifier;
 import org.eclipse.e4.core.commands.ECommandService;
 import aQute.bnd.deployer.repository.LocalIndexedRepo;
+import org.osgi.test.junit5.context.BundleContextExtension;
+import org.osgi.test.common.annotation.InjectBundleContext;
 
 // All of these tests manipulate the same workspace so they can't run in parallel.
 @Execution(SAME_THREAD)
 @ResourceLock(TEST_WORKSPACE)
 @ExtendWith(SoftAssertionsExtension.class)
+@ExtendWith(BundleContextExtension.class)
 //@ExtendWith(HeadlessApplicationExtension.class)
 public class BuildpathQuickFixProcessorTest {
 	static IPackageFragment pack;
@@ -259,8 +263,14 @@ public class BuildpathQuickFixProcessorTest {
 	
 	@BeforeAll
 //	static void beforeAll(IEclipseContext context) throws Exception {
-	static void beforeAll() throws Exception {
+	static void beforeAll(@InjectBundleContext BundleContext bc) throws Exception {
 
+		while (Workbench.getInstance() == null || !Workbench.getInstance().isRunning()) {
+			System.err.println("Waiting for workbench");
+			Thread.sleep(100);
+		}
+
+		
 //		Display d = PlatformUI.createDisplay();
 //		WorkbenchAdvisor advisor = new WorkbenchAdvisor() {
 //			@Override
@@ -289,14 +299,6 @@ public class BuildpathQuickFixProcessorTest {
 
 		//System.err.println("............Eclipse context: " + context);
 
-		Bundle b = FrameworkUtil.getBundle(BuildpathQuickFixProcessorTest.class);
-		System.err.println("b: " + b);
-		BundleContext bc = b.getBundleContext();
-		System.err.println("bc: " + b.getBundleContext());
-		System.err.println("bc: " + bc);
-		bc = Activator.bc;
-		service = bc.registerService(RepositoryListenerPlugin.class, new SimpleListener(), null);
-		
 		Path srcRoot = Paths.get("./resources/");
 //		Path srcRoot = Paths.get(b.getBundleContext().getProperty("bndtools.core.test.workspaces"));
 		Path ourRoot = srcRoot.resolve("org/bndtools/core/editors/quickfix");
@@ -311,11 +313,7 @@ public class BuildpathQuickFixProcessorTest {
 			project.delete(true, true, null);
 		}
 
-		IOverwriteQuery overwriteQuery = new IOverwriteQuery() {
-			public String queryOverwrite(String file) {
-				return ALL;
-			}
-		};
+		IOverwriteQuery overwriteQuery = file -> IOverwriteQuery.ALL;
 
 		List<Path> sourceProjects = Files.walk(ourRoot, 1).filter(x -> !x.equals(ourRoot)).collect(Collectors.toList());
 		CountDownLatch flag = new CountDownLatch(sourceProjects.size());
@@ -332,10 +330,17 @@ public class BuildpathQuickFixProcessorTest {
 		// Copy bundles from the parent project into our test workspace repo
 		LocalIndexedRepo localRepo = (LocalIndexedRepo)Central.getWorkspace().getRepository("Local Index");
 		Path bundleRoot = Paths.get("./generated/");
-		Files.walk(bundleRoot, 1).filter(x -> x.endsWith(".jar")).forEach(bundle -> {
+		System.err.println("localRepo: " + localRepo);
+//		System.err.println("localRepo.getName(): " + localRepo.getName());
+		System.err.println("bundleRoot: " + bundleRoot);
+		Files.walk(bundleRoot, 1).map(Object::toString).forEach(BuildpathQuickFixProcessorTest::log);
+		Files.walk(bundleRoot, 1).filter(x -> x.getFileName().toString().endsWith("simple.jar")).forEach(bundle -> {
+			System.err.println("====>" + bundle);
 			try {
 				localRepo.put(IO.stream(bundle), null);
 			} catch (Exception e) {
+				System.err.println("--->" + e);
+				e.printStackTrace();
 				throw Exceptions.duck(e);
 			}
 		});
@@ -361,65 +366,26 @@ public class BuildpathQuickFixProcessorTest {
 		IPackageFragmentRoot root = javaProject.getPackageFragmentRoot(sourceFolder);
 		synchronously("createPackageFragment", monitor -> pack = root.createPackageFragment("test", false, monitor));
 
-//		log("About to start building");
-//		synchronously(
-//				monitor -> ResourcesPlugin.getWorkspace().build(IncrementalProjectBuilder.INCREMENTAL_BUILD, monitor));
-//		Central.invalidateIndex();
-//		Central.needsIndexing();
-//		log("Initiating build");
-//		for (IProject current : wsr.getProjects()) {
-//			log("Attempting to build " + current.getName());
-//			Project bndProject = Central.getProject(current);
-//			if (bndProject == null) {
-//				continue;
-//			}
-//			bndProject.build();
-//			if (current.getName().equals("cnf")) {
-//				bndProject.getWorkspace().refresh();
-//			}
-//		}
-//		log("Finished waiting for build, waiting for simpleJar");
-//		simpleJar.await();
-//		log("Done waiting for simpleJar");
-		
+		for (IProject current : wsr.getProjects()) {
+			log("Attempting to build " + current.getName());
+			Project bndProject = Central.getProject(current);
+			if (bndProject == null) {
+				continue;
+			}
+			bndProject.build();
+			if (current.getName().equals("cnf")) {
+				bndProject.getWorkspace().refresh();
+			}
+		}
+
 		initSUTClass();
 	}
 
 	@AfterAll
 	static void afterAll() throws Exception {
-//		Method close = Workbench.class.getDeclaredMethod("close", int.class, boolean.class);
-//		close.setAccessible(true);
-//		close.invoke(Workbench.getInstance(), PlatformUI.RETURN_OK, true);
-	}
-	
-	static class SimpleListener implements RepositoryListenerPlugin {
-
-		@Override
-		public void bundleAdded(RepositoryPlugin repository, Jar jar, File file) {
-			System.err.println("bundleAdded: " + repository + ", " + file);
-			if (file.getName().equals("simple.jar")) {
-				simpleJar.countDown();
-			}
-		}
-
-		@Override
-		public void bundleRemoved(RepositoryPlugin repository, Jar jar, File file) {
-			// TODO Auto-generated method stub
-			
-		}
-
-		@Override
-		public void repositoryRefreshed(RepositoryPlugin repository) {
-			// TODO Auto-generated method stub
-			
-		}
-
-		@Override
-		public void repositoriesRefreshed() {
-			// TODO Auto-generated method stub
-			
-		}
-		
+		Method close = Workbench.class.getDeclaredMethod("close", int.class, boolean.class);
+		close.setAccessible(true);
+		Display.getDefault().syncExec(asRunnable(() ->	close.invoke(Workbench.getInstance(), PlatformUI.RETURN_OK, true)));
 	}
 	
 	@BeforeEach
@@ -820,7 +786,7 @@ public class BuildpathQuickFixProcessorTest {
 			softly.fail("no proposals returned");
 		} else {
 			softly.assertThat(proposals).withRepresentation(PROPOSAL).hasSize(1).haveExactly(1,
-					suggestsBundle("simple", "1.0.0", "simple.MyClass"));
+					suggestsBundle("bndtools.core.test.simple", "1.0.0", "simple.MyClass"));
 		}
 	}
 
