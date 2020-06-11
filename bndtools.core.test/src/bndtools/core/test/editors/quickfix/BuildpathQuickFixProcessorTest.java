@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import org.eclipse.jdt.internal.launching.LaunchingPlugin;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -86,6 +87,7 @@ import aQute.bnd.osgi.Jar;
 import aQute.bnd.service.RepositoryListenerPlugin;
 import aQute.bnd.service.RepositoryPlugin;
 import aQute.lib.exceptions.Exceptions;
+import aQute.lib.io.IO;
 import bndtools.central.Central;
 import bndtools.core.test.Activator;
 
@@ -109,12 +111,13 @@ import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.m2e.model.edit.pom.Notifier;
 import org.eclipse.e4.core.commands.ECommandService;
+import aQute.bnd.deployer.repository.LocalIndexedRepo;
 
 // All of these tests manipulate the same workspace so they can't run in parallel.
 @Execution(SAME_THREAD)
 @ResourceLock(TEST_WORKSPACE)
 @ExtendWith(SoftAssertionsExtension.class)
-@ExtendWith(HeadlessApplicationExtension.class)
+//@ExtendWith(HeadlessApplicationExtension.class)
 public class BuildpathQuickFixProcessorTest {
 	static IPackageFragment pack;
 	static Class<? extends IQuickFixProcessor> sutClass;
@@ -255,7 +258,8 @@ public class BuildpathQuickFixProcessorTest {
 	}
 	
 	@BeforeAll
-	static void beforeAll(IEclipseContext context) throws Exception {
+//	static void beforeAll(IEclipseContext context) throws Exception {
+	static void beforeAll() throws Exception {
 
 //		Display d = PlatformUI.createDisplay();
 //		WorkbenchAdvisor advisor = new WorkbenchAdvisor() {
@@ -283,9 +287,7 @@ public class BuildpathQuickFixProcessorTest {
 
 		simpleJar = new CountDownLatch(1);
 
-		System.err.println("............Eclipse context: " + context);
-
-		initSUTClass();
+		//System.err.println("............Eclipse context: " + context);
 
 		Bundle b = FrameworkUtil.getBundle(BuildpathQuickFixProcessorTest.class);
 		System.err.println("b: " + b);
@@ -326,6 +328,18 @@ public class BuildpathQuickFixProcessorTest {
 			importOperation.setCreateContainerStructure(false);
 			importOperation.run(countDownMonitor(flag));
 		}
+
+		// Copy bundles from the parent project into our test workspace repo
+		LocalIndexedRepo localRepo = (LocalIndexedRepo)Central.getWorkspace().getRepository("Local Index");
+		Path bundleRoot = Paths.get("./generated/");
+		Files.walk(bundleRoot, 1).filter(x -> x.endsWith(".jar")).forEach(bundle -> {
+			try {
+				localRepo.put(IO.stream(bundle), null);
+			} catch (Exception e) {
+				throw Exceptions.duck(e);
+			}
+		});
+		
 		log("About to wait for imports to complete " + sourceProjects.size());
 		flag.await(10000, TimeUnit.MILLISECONDS);
 		log("done waiting for import to completerater");
@@ -347,9 +361,9 @@ public class BuildpathQuickFixProcessorTest {
 		IPackageFragmentRoot root = javaProject.getPackageFragmentRoot(sourceFolder);
 		synchronously("createPackageFragment", monitor -> pack = root.createPackageFragment("test", false, monitor));
 
-		log("About to start building");
-		synchronously(
-				monitor -> ResourcesPlugin.getWorkspace().build(IncrementalProjectBuilder.INCREMENTAL_BUILD, monitor));
+//		log("About to start building");
+//		synchronously(
+//				monitor -> ResourcesPlugin.getWorkspace().build(IncrementalProjectBuilder.INCREMENTAL_BUILD, monitor));
 //		Central.invalidateIndex();
 //		Central.needsIndexing();
 //		log("Initiating build");
@@ -364,9 +378,11 @@ public class BuildpathQuickFixProcessorTest {
 //				bndProject.getWorkspace().refresh();
 //			}
 //		}
-		log("Finished waiting for build, waiting for simpleJar");
-		simpleJar.await();
-		log("Done waiting for simpleJar");
+//		log("Finished waiting for build, waiting for simpleJar");
+//		simpleJar.await();
+//		log("Done waiting for simpleJar");
+		
+		initSUTClass();
 	}
 
 	@AfterAll

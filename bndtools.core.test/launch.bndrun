@@ -7,7 +7,6 @@
 
 -runrequires: \
 	bnd.identity;id='bndtools.core.test.tests',\
-	bnd.identity;id='bndtools.core.test.launch',\
 	bnd.identity;id='biz.aQute.tester.junit-platform',\
 	bnd.identity;id='org.apache.felix.gogo.shell',\
 	bnd.identity;id='org.apache.felix.gogo.command',\
@@ -42,18 +41,26 @@
 	"Maven Central",\
 	"Eclipse 2018-12"
 
--runproperties: 
-	eclipse.application=org.eclipse.ui.workbench.swt.E4Application,\
+#	eclipse.application=org.eclipse.ui.ide.workbench,\
+#	eclipse.application=org.eclipse.e4.ui.workbench.swt.E4Application,\
+#	eclipse.product=bndtools.core.test.product,\
+#	osgi.instance.area.default=${.}/generated/workspace,\
+#	eclipse.application=bndtools.core.test.application,\
+#	eclipse.product=bndtools.core.test.product,\
+
+-runproperties: \
+	eclipse.application=org.eclipse.ui.ide.workbench,\
+	eclipse.product=org.eclipse.sdk.ide,\
 	eclipse.consoleLog=,\
-	eclipse.product=bndtools.core.test.product,\
+	tester.trace=true,\
+	tester.continuous=true,\
+	tester.separatethread=true,\
 	osgi.console=,\
     osgi.console.enable.builtin=false,\
-    tester.trace=true,\
-    tester.separatethread=true,\
-    osgi.instance.area.default=${.}/generated/workspace,\
+	osgi.instance.area=${.}/generated/workspace,\
 	bndtools.core.test.workspaces=${.}/resources/
 #	tester.names=org.bndtools.core.editors.quickfix.BuildpathQuickFixProcessorTest:withAnnotatedFQType_suggestsBundles(org.assertj.core.api.SoftAssertions)
-    
+
 -runbundles: \
 	biz.aQute.bndlib;version=snapshot,\
 	biz.aQute.repository;version=snapshot,\
@@ -62,7 +69,6 @@
 	bndtools.api;version=snapshot,\
 	bndtools.builder;version=snapshot,\
 	bndtools.core;version=snapshot,\
-	bndtools.core.test.launch;version=snapshot;startlevel=1,\
 	bndtools.core.test.tests;version=snapshot,\
 	com.ibm.icu;version='[63.1.0,63.1.1)',\
 	javax.inject;version='[1.0.0,1.0.1)',\
@@ -195,24 +201,11 @@
 	org.eclipse.ui.ide.application;version='[1.3.100,1.3.101)',\
 	org.eclipse.urischeme;version='[1.0.100,1.0.101)'	
 	
+-runbundles+: *service*;startlevel=1,\
+	org.bndtools.applaunch;startlevel=2,\
+	*;startlevel=3
+	
 -runproperties.win32: \
 	osgi.ws=win32,\
 	osgi.arch=x86_64,\
 	osgi.os=win32
-
-#	eclipse.application=org.eclipse.ui.ide.workbench,\
-#	eclipse.application=org.eclipse.e4.ui.workbench.swt.E4Application,\
-#	eclipse.product=bndtools.core.test.product,\
-#	osgi.instance.area.default=${.}/generated/workspace,\
-
--runproperties: \
-	eclipse.application=bndtools.core.test.application,\
-	eclipse.product=bndtools.core.test.product,\
-	tester.separatethread=true,\
-	eclipse.consoleLog=,\
-	tester.trace=true,\
-	tester.continuous=true,\
-	osgi.instance.area=${.}/generated/workspace,\
-	bndtools.core.test.workspaces=${.}/resources/
-
-	
