@@ -18,6 +18,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -103,7 +104,7 @@ import org.eclipse.e4.ui.model.application.commands.MCommand;
 import org.eclipse.e4.ui.model.application.impl.ApplicationPackageImpl;
 import org.eclipse.e4.ui.model.application.ui.MUIElement;
 import org.eclipse.e4.ui.model.application.ui.basic.MWindow;
-import 	org.eclipse.e4.ui.tests.extensions.HeadlessApplicationExtension;
+import org.eclipse.e4.ui.tests.extensions.HeadlessApplicationExtension;
 import org.eclipse.e4.ui.workbench.IPresentationEngine;
 import org.eclipse.e4.ui.workbench.modeling.EModelService;
 import org.eclipse.emf.common.util.URI;
@@ -171,17 +172,14 @@ public class BuildpathQuickFixProcessorTest {
 	}
 
 	static CountDownLatch simpleJar;
-	
+
 	static ServiceRegistration<RepositoryListenerPlugin> service;
 
-	
-	
 	protected static void createGUI(MUIElement uiRoot) {
 		renderer.createGui(uiRoot);
 	}
 
-	protected static MApplicationElement createApplicationElement(
-			IEclipseContext appContext) throws Exception {
+	protected static MApplicationElement createApplicationElement(IEclipseContext appContext) throws Exception {
 		return createApplication(appContext, getURI());
 	}
 
@@ -190,26 +188,20 @@ public class BuildpathQuickFixProcessorTest {
 	}
 
 	static IEclipseContext applicationContext;
-	
+
 	protected static IPresentationEngine createPresentationEngine(String renderingEngineURI) throws Exception {
-		IContributionFactory contributionFactory = applicationContext
-				.get(IContributionFactory.class);
-		Object newEngine = contributionFactory.create(renderingEngineURI,
-				applicationContext);
+		IContributionFactory contributionFactory = applicationContext.get(IContributionFactory.class);
+		Object newEngine = contributionFactory.create(renderingEngineURI, applicationContext);
 		return (IPresentationEngine) newEngine;
 	}
 
-	private static MApplication createApplication(IEclipseContext appContext,
-			String appURI) throws Exception {
-		URI initialWorkbenchDefinitionInstance = URI.createPlatformPluginURI(
-				appURI, true);
+	private static MApplication createApplication(IEclipseContext appContext, String appURI) throws Exception {
+		URI initialWorkbenchDefinitionInstance = URI.createPlatformPluginURI(appURI, true);
 
 		ResourceSet set = new ResourceSetImpl();
-		set.getPackageRegistry().put("http://MApplicationPackage/",
-				ApplicationPackageImpl.eINSTANCE);
+		set.getPackageRegistry().put("http://MApplicationPackage/", ApplicationPackageImpl.eINSTANCE);
 
-		Resource resource = set.getResource(initialWorkbenchDefinitionInstance,
-				true);
+		Resource resource = set.getResource(initialWorkbenchDefinitionInstance, true);
 
 		MApplication application = (MApplication) resource.getContents().get(0);
 		application.setContext(appContext);
@@ -232,7 +224,7 @@ public class BuildpathQuickFixProcessorTest {
 			E4Workbench.initializeContext(appContext, window);
 		}
 
-		//processPartContributions(application.getContext(), resource);
+		// processPartContributions(application.getContext(), resource);
 
 		renderer = createPresentationEngine(getEngineURI());
 
@@ -240,27 +232,27 @@ public class BuildpathQuickFixProcessorTest {
 	}
 
 	static IPresentationEngine renderer;
-	
+
 	protected static String getEngineURI() {
 		return "bundleclass://org.eclipse.e4.ui.tests/org.eclipse.e4.ui.tests.application.HeadlessContextPresentationEngine"; //$NON-NLS-1$
 	}
 
-
 	protected static MApplicationElement applicationElement;
 	protected static EModelService ems;
+
 	static void setupApp(IEclipseContext applicationContext) throws Exception {
 
-			BuildpathQuickFixProcessorTest.applicationContext = applicationContext;
-			applicationElement = createApplicationElement(applicationContext);
-			ems = applicationContext.get(EModelService.class);
+		BuildpathQuickFixProcessorTest.applicationContext = applicationContext;
+		applicationElement = createApplicationElement(applicationContext);
+		ems = applicationContext.get(EModelService.class);
 
-			// Hook the global notifications
+		// Hook the global notifications
 //			final UIEventPublisher ep = new UIEventPublisher(applicationContext);
 //			((Notifier) applicationElement).eAdapters().add(ep);
 //			applicationContext.set(UIEventPublisher.class, ep);
 
 	}
-	
+
 	@BeforeAll
 //	static void beforeAll(IEclipseContext context) throws Exception {
 	static void beforeAll(@InjectBundleContext BundleContext bc) throws Exception {
@@ -270,7 +262,6 @@ public class BuildpathQuickFixProcessorTest {
 			Thread.sleep(100);
 		}
 
-		
 //		Display d = PlatformUI.createDisplay();
 //		WorkbenchAdvisor advisor = new WorkbenchAdvisor() {
 //			@Override
@@ -297,7 +288,7 @@ public class BuildpathQuickFixProcessorTest {
 
 		simpleJar = new CountDownLatch(1);
 
-		//System.err.println("............Eclipse context: " + context);
+		// System.err.println("............Eclipse context: " + context);
 
 		Path srcRoot = Paths.get("./resources/");
 //		Path srcRoot = Paths.get(b.getBundleContext().getProperty("bndtools.core.test.workspaces"));
@@ -327,8 +318,30 @@ public class BuildpathQuickFixProcessorTest {
 			importOperation.run(countDownMonitor(flag));
 		}
 
+		// This is a hack to make sure that Central is running before we continue.
+		// Central must be initialized on the UI thread.
+		Display.getDefault()
+		.syncExec(() -> Central.getInstance());
+//		Instant endTime = Instant.now().plusMillis(10000);
+//		NoClassDefFoundError ncdfe = null;
+//		while (Instant.now().isBefore(endTime)) {
+//			try {
+//				log("Trying to get Central: " + endTime);
+//				Central.getInstance();
+//				break;
+//			} catch (NoClassDefFoundError e) {
+//				ncdfe = e;
+//				log("Errroy trying to get Central: " + e);
+//				Thread.sleep(100);
+//			}
+//		}
+//		log("Finished trying to get Central");
+//		if (Instant.now().isAfter(endTime)) {
+//			log("endTime: " + endTime);
+//			throw ncdfe;
+//		}
 		// Copy bundles from the parent project into our test workspace repo
-		LocalIndexedRepo localRepo = (LocalIndexedRepo)Central.getWorkspace().getRepository("Local Index");
+		LocalIndexedRepo localRepo = (LocalIndexedRepo) Central.getWorkspace().getRepository("Local Index");
 		Path bundleRoot = Paths.get("./generated/");
 		System.err.println("localRepo: " + localRepo);
 //		System.err.println("localRepo.getName(): " + localRepo.getName());
@@ -344,7 +357,7 @@ public class BuildpathQuickFixProcessorTest {
 				throw Exceptions.duck(e);
 			}
 		});
-		
+
 		log("About to wait for imports to complete " + sourceProjects.size());
 		flag.await(10000, TimeUnit.MILLISECONDS);
 		log("done waiting for import to completerater");
@@ -385,9 +398,10 @@ public class BuildpathQuickFixProcessorTest {
 	static void afterAll() throws Exception {
 		Method close = Workbench.class.getDeclaredMethod("close", int.class, boolean.class);
 		close.setAccessible(true);
-		Display.getDefault().syncExec(asRunnable(() ->	close.invoke(Workbench.getInstance(), PlatformUI.RETURN_OK, true)));
+		Display.getDefault()
+				.syncExec(asRunnable(() -> close.invoke(Workbench.getInstance(), PlatformUI.RETURN_OK, true)));
 	}
-	
+
 	@BeforeEach
 	void before() throws Exception {
 		sut = sutClass.newInstance();

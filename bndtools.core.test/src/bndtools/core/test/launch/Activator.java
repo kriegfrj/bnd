@@ -64,9 +64,10 @@ class LauncherTracker extends ServiceTracker<Object, ServiceRegistration<Applica
 		if (!found)
 			log.warning("Unable to find bundle org.eclipse.equinox.app. Eclipse application will not start.");
 
+		System.err.println("We're registering *our* ApplicationLauncher service");
 		// Register the ApplicationLauncher
 		log.fine("Registering ApplicationLauncher service.");
-		return context.registerService(ApplicationLauncher.class, new BndApplicationLauncher(), null);
+		return context.registerService(ApplicationLauncher.class, new BndApplicationLauncher(context), null);
 	}
 
 	@Override

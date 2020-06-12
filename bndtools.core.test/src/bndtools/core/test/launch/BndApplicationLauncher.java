@@ -9,7 +9,6 @@ import org.eclipse.osgi.service.runnable.ApplicationLauncher;
 import org.eclipse.osgi.service.runnable.ParameterizedRunnable;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
-import org.osgi.service.component.annotations.Component;
 
 class BndApplicationLauncher implements ApplicationLauncher {
 
@@ -17,17 +16,18 @@ class BndApplicationLauncher implements ApplicationLauncher {
 		.getName());
 	private final BundleContext	bc;
 
-	public BndApplicationLauncher() {
-		this.bc = FrameworkUtil.getBundle(BndApplicationLauncher.class).getBundleContext();
+	public BndApplicationLauncher(BundleContext bc) {
+		this.bc = bc;
 	}
 
 	@Override
 	public void launch(final ParameterizedRunnable runnable, final Object context) {
+		System.err.println("Hello, we are launching!");
 		log.log(Level.FINE,
 			"Received launch request from Eclipse application service, registering java.lang.Runnable{main.thread=true}");
 		Runnable service = () -> {
 			try {
-				log.log(Level.FINE, "Executing appplication on thread {0} ({1}).", new Object[] {
+				log.log(Level.FINE, "Executing application on thread {0} ({1}).", new Object[] {
 					Thread.currentThread()
 						.getName(),
 					Thread.currentThread()
