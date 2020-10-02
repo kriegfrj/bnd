@@ -181,7 +181,13 @@ public class TestRunListener implements ITestRunListener2 {
 	public void testReran(String testId, String testClass, String testName, int status, String trace, String expected,
 		String actual) {
 		info(() -> "=========>testReran");
-		softly.check(() -> Assertions.fail("shouldn't be called"));
+		softly.assertThat(data.idMap)
+			.as("rerun:already ran")
+			.containsKey(testId);
+		softly.assertThat(data.nameMap)
+			.as("rerun:already registered name")
+			.containsKey(testName + "(" + testClass + ")");
+		data.rerunMap.add(testId, new TestRerun(testId, testClass, testName, status, trace, expected, actual));
 	}
 
 	public void checkRunTime() {

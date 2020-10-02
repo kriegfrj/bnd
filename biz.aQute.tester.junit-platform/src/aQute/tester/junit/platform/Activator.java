@@ -148,7 +148,7 @@ public class Activator implements BundleActivator, Runnable {
 		if (port > 0) {
 			try {
 				trace("using control port %s, rerun IDE?: %s", port, rerunIDE);
-				jUnitEclipseListener = new JUnitEclipseListener(port, rerunIDE);
+				jUnitEclipseListener = new JUnitEclipseListener(this, port, rerunIDE);
 				listeners.add(jUnitEclipseListener);
 			} catch (Exception e) {
 				System.err.println(
@@ -403,8 +403,8 @@ public class Activator implements BundleActivator, Runnable {
 
 		@Descriptor("retrieves the tester.names filter")
 		public String getTesterNames() {
-			return Activator.this.testCases == null ? null
-				: Activator.this.testCases.stream()
+			return testCases == null ? null
+				: testCases.stream()
 					.collect(Collectors.joining(", "));
 		}
 
@@ -414,7 +414,6 @@ public class Activator implements BundleActivator, Runnable {
 			Activator.this.setTesterNames(tests == null ? null
 				: Stream.of(tests)
 					.collect(Collectors.joining(",")));
-			System.err.println("testCases: " + testCases);
 		}
 	}
 

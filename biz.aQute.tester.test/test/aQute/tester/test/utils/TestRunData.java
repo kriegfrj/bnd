@@ -20,6 +20,7 @@ public class TestRunData {
 	Map<String, TestFailure>	failureMap		= new HashMap<>();
 	MultiMap<String, String>	startNameMap	= new MultiMap<>();
 	MultiMap<String, String>	endNameMap		= new MultiMap<>();
+	MultiMap<String, TestRerun>	rerunMap		= new MultiMap<>();
 	Deque<String>				started			= new ArrayDeque<>();
 	int							testCount;
 	long						actualRunTime;
@@ -125,4 +126,7 @@ public class TestRunData {
 		return endNameMap;
 	}
 
+	public MultiMap<String, TestRerun> getRerunMap() {
+		return rerunMap;
+	}
 }

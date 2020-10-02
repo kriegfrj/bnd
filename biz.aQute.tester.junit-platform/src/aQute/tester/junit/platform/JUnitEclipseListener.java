@@ -83,13 +83,16 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 		}
 	}
 
+	private final Activator									parent;
 	private final Connection<DataInputStream, OutputStream>	control;
-	private Connection<Reader, PrintWriter>					client;
+	private Connection<? extends Reader, PrintWriter>		client;
 	private long											startTime;
 	private TestPlan										testPlan;
-	private final boolean									verbose	= false;
+	private final boolean									verbose	= true;
+	private volatile String									rerunClass	= null;
+	private volatile String									rerunMethod	= null;
 
-	private static final class Connection<IN, OUT> implements Closeable {
+	private static class Connection<IN, OUT> implements Closeable {
 		final SocketChannel	channel;
 		final IN			in;
 		final OUT			out;
@@ -106,8 +109,69 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 		}
 	}
 
-	public JUnitEclipseListener(int port) throws Exception {
-		this(port, false);
+	boolean isRerun() {
+		return rerunClass != null;
+	}
+
+	private final class JUnitConnection extends Connection<BufferedReader, PrintWriter> implements Runnable {
+		Thread readerThread;
+
+		JUnitConnection(SocketChannel channel) {
+			super(channel, new BufferedReader(Channels.newReader(channel, UTF_8.newDecoder(), -1)),
+				new PrintWriter(Channels.newWriter(channel, UTF_8.newEncoder(), -1)));
+
+			readerThread = new Thread(this, "JUnitEclipseListener: readerThread");
+			readerThread.start();
+		}
+
+		@Override
+		public void run() {
+			try {
+				while (true) {
+					String line = in.readLine();
+					switch (line.substring(0, 8)) {
+						case ">STOP   " :
+							// Currently ignored.
+							break;
+						case ">RERUN  " :
+							String[] bits = line.substring(8)
+								.split(" ");
+							String testName;
+							switch (bits.length) {
+								case 3 :
+									rerunClass = bits[1];
+									rerunMethod = bits[2];
+									testName = bits[1] + "#" + bits[2];
+									break;
+								default :
+									System.err.println("Couldn't find all the bits, found: " + bits.length);
+									continue;
+							}
+							parent.queue.offerLast(Activator.toSelector(testName));
+							System.err.println("Test from the idMap: " + reverseMap.get(bits[0]));
+							break;
+						default :
+							System.err.println("Unknown message type: " + line);
+					}
+				}
+			} catch (IOException e) {
+				// This usually is because the stream has been closed.
+				if (verbose) {
+					e.printStackTrace();
+				}
+			}
+		}
+
+		@Override
+		public void close() {
+			// Closing the stream causes readLine() to interrupt by throwing an
+			// IOException
+			super.close();
+			readerThread.interrupt();
+			try {
+				readerThread.join(1000);
+			} catch (InterruptedException e) {}
+		}
 	}
 
 	private SocketChannel connectRetry(int port) throws Exception {
@@ -129,7 +193,8 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 		return null;
 	}
 
-	public JUnitEclipseListener(int port, boolean rerunIDE) throws Exception {
+	public JUnitEclipseListener(Activator parent, int port, boolean rerunIDE) throws Exception {
+		this.parent = parent;
 		try {
 			SocketChannel channel = connectRetry(port);
 			if (rerunIDE) {
@@ -147,10 +212,9 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 		}
 	}
 
-	private Connection<Reader, PrintWriter> junitConnection(SocketChannel channel) throws IOException {
+	private JUnitConnection junitConnection(SocketChannel channel) throws IOException {
 		info("JUnitEclipseListener: Opening streams for client connection %s", channel);
-		return new Connection<>(channel, new BufferedReader(Channels.newReader(channel, UTF_8.newDecoder(), -1)),
-			new PrintWriter(Channels.newWriter(channel, UTF_8.newEncoder(), -1)));
+		return new JUnitConnection(channel);
 	}
 
 	private Connection<Reader, PrintWriter> nullConnection() {
@@ -176,6 +240,9 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 
 	@Override
 	public void testPlanExecutionStarted(TestPlan testPlan) {
+		if (isRerun()) {
+			return;
+		}
 		if (control != null) {
 			info("JUnitEclipseListener: testPlanExecutionStarted: Closing client connection, if any");
 			safeClose(client);
@@ -212,6 +279,11 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 
 	@Override
 	public void testPlanExecutionFinished(TestPlan testPlan) {
+		if (isRerun()) {
+			rerunClass = null;
+			rerunMethod = null;
+			return;
+		}
 		message("%RUNTIME", Long.toString(System.currentTimeMillis() - startTime));
 		info("JUnitEclipseListener: testPlanExecutionFinished: Waiting .25 seconds");
 		try {
@@ -237,6 +309,16 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 		message("%TRACEE ");
 	}
 
+	private void sendRerunTrace(Throwable t) {
+		message("%RTRACES");
+		t.printStackTrace(client.out);
+		if (verbose) {
+			t.printStackTrace(System.err);
+		}
+		client.out.println();
+		message("%RTRACEE");
+	}
+
 	private void sendExpectedAndActual(String expected, String actual) {
 		message("%EXPECTS");
 		client.out.println(expected);
@@ -252,6 +334,9 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 	@Override
 	public void executionStarted(TestIdentifier testIdentifier) {
 		info("JUnitEclipseListener: Execution started: %s", testIdentifier);
+		if (isRerun()) {
+			return;
+		}
 		if (testIdentifier.isTest()) {
 			message("%TESTS  ", testIdentifier);
 		}
@@ -263,6 +348,33 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 			info("JUnitEclipseListener: Execution finished: %s", testIdentifier);
 			Status result = testExecutionResult.getStatus();
 			if (testIdentifier.isTest()) {
+				if (isRerun()) {
+					String rerunStatus;
+					if (result != Status.SUCCESSFUL) {
+						final boolean assumptionFailed = result == Status.ABORTED;
+						info("JUnitEclipseListener: assumption failed: %s", assumptionFailed);
+						Optional<Throwable> throwableOp = testExecutionResult.getThrowable();
+						rerunStatus = "ERROR";
+						if (throwableOp.isPresent()) {
+							Throwable exception = throwableOp.get();
+							info("JUnitEclipseListener: throwable: %s", exception);
+							if (assumptionFailed || exception instanceof AssertionError) {
+								info("JUnitEclipseListener: failed: %s assumptionFailed: %s", exception,
+									assumptionFailed);
+								sendExpectedAndActual(exception);
+								rerunStatus = "FAILURE";
+							} else {
+								info("JUnitEclipseListener: error");
+							}
+							sendRerunTrace(exception);
+						}
+					} else {
+						rerunStatus = "OK";
+					}
+					message("%TSTRERN",
+						getTestId(testIdentifier) + " " + rerunClass + " " + rerunMethod + " " + rerunStatus);
+
+				} else {
 				if (result != Status.SUCCESSFUL) {
 					final boolean assumptionFailed = result == Status.ABORTED;
 					info("JUnitEclipseListener: assumption failed: %s", assumptionFailed);
@@ -281,6 +393,7 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 					});
 				}
 				message("%TESTE  ", testIdentifier);
+				}
 			} else { // container
 				if (result != Status.SUCCESSFUL) {
 					message("%ERROR  ", testIdentifier);
@@ -379,11 +492,13 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 		}
 	}
 
-	private final AtomicInteger					counter	= new AtomicInteger();
-	private final ConcurrentMap<String, String>	idMap	= new ConcurrentHashMap<>();
+	private final AtomicInteger					counter		= new AtomicInteger();
+	private final ConcurrentMap<String, String>	idMap		= new ConcurrentHashMap<>();
+	private final ConcurrentMap<String, String>	reverseMap	= new ConcurrentHashMap<>();
 
 	private String getTestId(String uniqueId) {
 		String testId = idMap.computeIfAbsent(uniqueId, id -> Integer.toString(counter.incrementAndGet()));
+		reverseMap.put(testId, uniqueId);
 		return testId;
 	}
 

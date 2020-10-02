@@ -30,6 +30,9 @@ Import-Package: \
 
 -maven-scope: provided
 
+-buildpath.debug: \
+	org.eclipse.jdt.junit.runtime
+
 -buildpath: \
 	osgi.annotation;version=latest,\
 	aQute.libg;version=project,\

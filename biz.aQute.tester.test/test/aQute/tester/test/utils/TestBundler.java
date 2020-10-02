@@ -147,6 +147,11 @@ public class TestBundler {
 		return ((AtomicReference<Thread>) getStatic(testClass, "currentThread")).get();
 	}
 
+	@SuppressWarnings("unchecked")
+	public void setCurrentThread(Class<?> testClass, Thread value) {
+		((AtomicReference<Thread>) getStatic(testClass, "currentThread")).set(value);
+	}
+
 	public int getInteger(String fieldName, Class<?> testClass) {
 		return ((AtomicInteger) getStatic(testClass, fieldName)).get();
 	}

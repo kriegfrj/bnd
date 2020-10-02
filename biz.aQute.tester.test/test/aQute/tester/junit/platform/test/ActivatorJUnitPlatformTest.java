@@ -29,6 +29,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.assertj.core.api.Assertions;
+import org.eclipse.jdt.internal.junit.model.ITestRunListener2;
 import org.junit.AssumptionViolatedException;
 import org.junit.ComparisonFailure;
 import org.junit.jupiter.api.Test;
@@ -51,6 +52,7 @@ import aQute.lib.xml.XML;
 import aQute.tester.test.assertions.CustomAssertionError;
 import aQute.tester.test.utils.TestEntry;
 import aQute.tester.test.utils.TestFailure;
+import aQute.tester.test.utils.TestRerun;
 import aQute.tester.test.utils.TestRunData;
 import aQute.tester.test.utils.TestRunListener;
 import aQute.tester.testbase.AbstractActivatorCommonTest;
@@ -647,5 +649,126 @@ public class ActivatorJUnitPlatformTest extends AbstractActivatorCommonTest {
 		assertThat(methods).containsExactly("testPlanExecutionStarted", "executionStarted", "executionStarted",
 			"executionStarted", "executionStarted", "executionStarted", "executionFinished", "executionFinished",
 			"executionFinished", "executionFinished", "executionFinished", "testPlanExecutionFinished");
+	}
+
+	@Test
+	public void rerun_forErroredTest_rerunsSpecifiedTest() throws Exception {
+		TestRerun rerunEntry = doRerun(With1Error1Failure.class, "test1");
+		assertThat(testBundler.getCurrentThread(JUnit4Test.class)).as("junit4:afterRerun")
+			.isNull();
+
+		assertThat(rerunEntry.status).as("status")
+			.isEqualTo(ITestRunListener2.STATUS_ERROR);
+		assertThat(rerunEntry.expected).as("expected")
+			.isNullOrEmpty();
+		assertThat(rerunEntry.actual).as("actual")
+			.isNullOrEmpty();
+		assertThat(rerunEntry.trace).as("trace")
+			.contains("RuntimeException")
+			.contains("With1Error1Failure.test1");
+	}
+
+	@Test
+	public void rerun_forFailedTest_withNoActualExpected_rerunsSpecifiedTest() throws Exception {
+		TestRerun rerunEntry = doRerun(With1Error1Failure.class, "test3");
+		assertThat(testBundler.getCurrentThread(JUnit4Test.class)).as("junit4:afterRerun")
+			.isNull();
+
+		assertThat(rerunEntry.status).as("status")
+			.isEqualTo(ITestRunListener2.STATUS_FAILURE);
+		assertThat(rerunEntry.expected).as("expected")
+			.isNullOrEmpty();
+		assertThat(rerunEntry.actual).as("actual")
+			.isNullOrEmpty();
+		assertThat(rerunEntry.trace).as("trace")
+			.contains("AssertionError")
+			.contains("With1Error1Failure.test3");
+	}
+
+	@Test
+	public void rerun_forFailedTest_withActualExpected_rerunsSpecifiedTest() throws Exception {
+		TestRerun rerunEntry = doRerun(JUnit4ComparisonTest.class, "comparisonFailure");
+		assertThat(testBundler.getCurrentThread(JUnit4Test.class)).as("junit4:afterRerun")
+			.isNull();
+
+		assertThat(rerunEntry.status).as("status")
+			.isEqualTo(ITestRunListener2.STATUS_FAILURE);
+		assertThat(rerunEntry.expected).as("expected")
+			.isEqualTo("expected");
+		assertThat(rerunEntry.actual).as("actual")
+			.isEqualTo("actual");
+		assertThat(rerunEntry.trace).as("trace")
+			.contains("message")
+			.contains(ComparisonFailure.class.getName())
+			.contains("JUnit4ComparisonTest.comparisonFailure");
+	}
+
+	@Test
+	public void rerun_forSuccessfulTest_rerunsSpecifiedTest() throws Exception {
+		TestRerun rerunEntry = doRerun(JUnit4Test.class, "somethingElse");
+		assertThat(testBundler.getCurrentThread(JUnit4Test.class)).as("junit4:afterRerun")
+			.isEqualTo(runThread);
+
+		assertThat(rerunEntry.status).as("status")
+			.isEqualTo(ITestRunListener2.STATUS_OK);
+		assertThat(rerunEntry.expected).as("expected")
+			.isNullOrEmpty();
+		assertThat(rerunEntry.actual).as("actual")
+			.isNullOrEmpty();
+		assertThat(rerunEntry.trace).as("trace")
+			.isNullOrEmpty();
+	}
+
+	private TestRerun doRerun(Class<?> testClass, String method) throws Exception {
+		try (ServerSocket controlSock = new ServerSocket(0)) {
+			controlSock.setSoTimeout(10000);
+			int controlPort = controlSock.getLocalPort();
+			builder.set("launch.services", "true")
+				.set(TESTER_CONTINUOUS, "true")
+				.set(TESTER_CONTROLPORT, Integer.toString(controlPort));
+			createLP();
+			addTestBundle(With1Error1Failure.class, JUnit4ComparisonTest.class, JUnit4Test.class, JUnit3Test.class);
+
+			runTester();
+			try (Socket sock = controlSock.accept()) {
+				InputStream inStr = sock.getInputStream();
+				DataOutputStream outStr = new DataOutputStream(sock.getOutputStream());
+
+				readWithTimeout(inStr);
+				TestRunListener listener = startEclipseJUnitListener();
+				outStr.writeInt(eclipseJUnitPort);
+				outStr.flush();
+				listener.waitForClientToFinish(10000);
+
+				TestRunData result = listener.getLatestRunData();
+
+				if (result == null) {
+					Assertions.fail("Result was null" + listener);
+					return null;
+				}
+
+				assertThat(testBundler.getCurrentThread(JUnit3Test.class)).as("junit3:init")
+					.isEqualTo(runThread);
+				assertThat(testBundler.getCurrentThread(JUnit4Test.class)).as("junit4:init")
+					.isEqualTo(runThread);
+				testBundler.setCurrentThread(JUnit3Test.class, null);
+				testBundler.setCurrentThread(JUnit4Test.class, null);
+
+				TestEntry entry = result.getNameMap()
+					.get(nameOf(testClass, method));
+
+				client.rerunTest(entry.testId, nameOf(testClass), method);
+				waitForTesterToWait();
+				assertThat(result.getRerunMap()
+					.get(entry.testId)).as("rerun")
+						.hasSize(1);
+				assertThat(testBundler.getCurrentThread(JUnit3Test.class)).as("junit3:afterRerun")
+					.isNull();
+
+				return result.getRerunMap()
+					.get(entry.testId)
+					.get(0);
+			}
+		}
 	}
 }

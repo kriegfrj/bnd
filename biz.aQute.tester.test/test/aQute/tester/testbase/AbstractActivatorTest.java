@@ -78,6 +78,13 @@ public class AbstractActivatorTest implements StandardSoftAssertionsProvider {
 		softly = new SoftAssertions();
 	}
 
+	@AfterEach
+	void afterEach() {
+		if (client != null) {
+			client.stopWaiting();
+		}
+	}
+
 	protected String name;
 	protected Bundle testBundle;
 
@@ -272,7 +279,7 @@ public class AbstractActivatorTest implements StandardSoftAssertionsProvider {
 			}
 		}
 
-	RemoteTestRunnerClient client;
+	protected RemoteTestRunnerClient client;
 
 	protected String testSuite() {
 		return String.format("/testsuite[contains(@name, '%s')]", testBundle.getSymbolicName());
@@ -337,8 +344,6 @@ public class AbstractActivatorTest implements StandardSoftAssertionsProvider {
 			return listener.getLatestRunData();
 		} catch (InterruptedException e) {
 			throw Exceptions.duck(e);
-		} finally {
-			client.stopWaiting();
 		}
 	}
 
