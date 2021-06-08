@@ -52,6 +52,8 @@
 	bnd.identity;id='org.bndtools.versioncontrol.ignores.plugin.git',\
 	bnd.identity;id='org.eclipse.ant.core',\
 	bnd.identity;id='org.eclipse.ant.ui',\
+	bnd.identity;id='org.eclipse.eclemma.core',\
+	bnd.identity;id='org.eclipse.eclemma.ui',\
 	bnd.identity;id='org.eclipse.emf.ant',\
 	bnd.identity;id='org.eclipse.emf.codegen.ecore.ui',\
 	bnd.identity;id='org.eclipse.emf.codegen.ui',\
@@ -109,7 +111,8 @@
 
 -runrepos: \
 	"Workspace",\
-	"Eclipse 2020-06"
+	"Eclipse 2020-06",\
+	"EclEmma Plugin"
 
 -runee: JavaSE-1.8
 

@@ -393,7 +393,7 @@
 			sourcePathComputerId="org.eclipse.jdt.launching.sourceLookup.javaSourcePathComputer" />
 		<launchConfigurationType
 			delegate="bndtools.launch.OSGiJUnitLaunchDelegate"
-			id="bndtools.launch.junit" modes="run, debug"
+			id="bndtools.launch.junit" modes="run, debug, coverage"
 			name="OSGi Framework JUnit Tests"
 			sourceLocatorId="org.bndtools.core.launch.BndDependencySourceLookupDirector"
 			sourcePathComputerId="org.eclipse.jdt.launching.sourceLookup.javaSourcePathComputer" />
