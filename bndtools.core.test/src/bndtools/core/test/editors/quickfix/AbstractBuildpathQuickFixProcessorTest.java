@@ -19,10 +19,12 @@ import static org.eclipse.jdt.core.compiler.IProblem.UnresolvedVariable;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -228,10 +230,17 @@ abstract class AbstractBuildpathQuickFixProcessorTest {
 			model.load();
 			List<VersionedClause> buildPath = model.getBuildPath();
 			if (buildPath != null && !buildPath.isEmpty()) {
-				model.setBuildPath(Collections.emptyList());
-				model.saveChanges();
-				Central.refresh(bndProject);
-				waitForClasspathUpdate("clearBuildpath()");
+				CountDownLatch flag = new CountDownLatch(1);
+				IElementChangedListener listener = new ClasspathChangedListener(flag);
+				JavaCore.addElementChangedListener(listener, ElementChangedEvent.POST_CHANGE);
+				try {
+					model.setBuildPath(Collections.emptyList());
+					model.saveChanges();
+					Central.refresh(bndProject);
+					TaskUtils.waitForFlag(flag, "clearBuildpath()");
+				} finally {
+					JavaCore.removeElementChangedListener(listener);
+				}
 			} else {
 				log("buildpath was not set; not trying to clear it");
 			}
@@ -245,12 +254,24 @@ abstract class AbstractBuildpathQuickFixProcessorTest {
 			BndEditModel model = new BndEditModel(bndProject);
 			model.load();
 
+			List<VersionedClause> path = model.getBuildPath();
+			List<VersionedClause> orig = path == null ? null : new ArrayList<>(path);
+
 			for (String bundleName : bundleNames) {
 				model.addPath(new VersionedClause(bundleName, null), Constants.BUILDPATH);
 			}
-			model.saveChanges();
-			Central.refresh(bndProject);
-			waitForClasspathUpdate("addBundleToBuildpath");
+			if (!Objects.equals(orig, model.getBuildPath())) {
+				CountDownLatch flag = new CountDownLatch(1);
+				IElementChangedListener listener = new ClasspathChangedListener(flag);
+				JavaCore.addElementChangedListener(listener, ElementChangedEvent.POST_CHANGE);
+				try {
+					model.saveChanges();
+					Central.refresh(bndProject);
+					TaskUtils.waitForFlag(flag, "addBundlesToBuildpath()");
+				} finally {
+					JavaCore.removeElementChangedListener(listener);
+				}
+			}
 		} catch (Exception e) {
 			throw Exceptions.duck(e);
 		}

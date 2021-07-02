@@ -24,7 +24,7 @@ public class TaskUtils {
 	private TaskUtils() {}
 
 	public static void log(String msg) {
-		// System.err.println(System.currentTimeMillis() + ": " + msg);
+		System.err.println(System.currentTimeMillis() + ": " + msg);
 	}
 
 	public static void synchronously(String msg, MonitoredTask task) {
@@ -62,9 +62,19 @@ public class TaskUtils {
 	public static void dumpWorkspace() {
 		IWorkspace ws = ResourcesPlugin.getWorkspace();
 		try {
-		ws.getRoot()
-			.accept(VISITOR);
+			ws.getRoot()
+				.accept(VISITOR);
 		} catch (CoreException e) {
+			throw Exceptions.duck(e);
+		}
+	}
+
+	public static void waitForFlag(CountDownLatch flag, String msg) {
+		try {
+			if (!flag.await(10000, TimeUnit.MILLISECONDS)) {
+				throw new IllegalStateException("Timed out waiting for flag" + (msg == null ? "" : " " + msg));
+			}
+		} catch (InterruptedException e) {
 			throw Exceptions.duck(e);
 		}
 	}

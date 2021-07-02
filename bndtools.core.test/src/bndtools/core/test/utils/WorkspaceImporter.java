@@ -1,20 +1,21 @@
 package bndtools.core.test.utils;
 
+import static bndtools.core.test.utils.TaskUtils.log;
+
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
-import org.eclipse.core.resources.WorkspaceJob;
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.Status;
-import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.ui.dialogs.IOverwriteQuery;
 import org.eclipse.ui.wizards.datatransfer.FileSystemStructureProvider;
 import org.eclipse.ui.wizards.datatransfer.ImportOperation;
@@ -44,68 +45,55 @@ public class WorkspaceImporter {
 			if (project.exists()) {
 				project.delete(true, true, null);
 			}
-			importProject(root.resolve(projectName), null);
+			importProject(root.resolve(projectName));
 		} catch (Exception e) {
 			throw Exceptions.duck(e);
 		}
 	}
 
 	public void importProject(String project) {
-		importProject(root.resolve(project), null);
+		importProject(root.resolve(project));
 	}
 
-	// First cleans the workspace of all existing projects and then imports the
-	// specified projects.
-	// Wraps all of the operations into a single WorkspaceJob to avoid multiple
-	// resource change events.
-	public static void importAllProjects(Stream<Path> projects) {
+	public static void cleanWorkspace() {
 		IWorkspace ws = ResourcesPlugin.getWorkspace();
 		IWorkspaceRoot wsr = ResourcesPlugin.getWorkspace()
 			.getRoot();
-		Job job = new WorkspaceJob("Clean and import all") {
-			@Override
-			public IStatus runInWorkspace(IProgressMonitor monitor) {
-				try {
-					// Clean the workspace
-					IProject[] existingProjects = wsr.getProjects();
-					for (IProject project : existingProjects) {
-						project.delete(true, true, monitor);
-					}
 
-					projects.forEach(path -> importProject(path, monitor));
-					return Status.OK_STATUS;
-				} catch (Exception e) {
-					return new Status(IStatus.ERROR, WorkspaceImporter.class, 0,
-						"Error during import: " + e.getMessage(), e);
-				}
-			}
-		};
-		// Lock the entire workspace so that we don't run simultaneously with
-		// other jobs; see eg #4573.
-		job.setRule(wsr);
-		job.schedule();
+		final CountDownLatch flag = new CountDownLatch(1);
+		TaskUtils.log("Clean workspace");
+		AtomicBoolean shouldWait = new AtomicBoolean(false);
 		try {
-			if (!job.join(10000, null)) {
-				TaskUtils.dumpWorkspace();
-				throw new IllegalStateException("Timed out waiting for workspace import to complete");
-			}
-
-			// Wait for Workspace object to be complete.
-			final CountDownLatch flag = new CountDownLatch(1);
-			Central.onCnfWorkspace(bndWS -> {
-				flag.countDown();
-			});
-			flag.await(10000, TimeUnit.MILLISECONDS);
-		} catch (InterruptedException e) {
+			ws.run(monitor -> {
+				if (wsr.getProject("cnf")
+					.exists()) {
+					// Wait for Workspace object to be complete.
+					Central.onCnfWorkspace(bndWS -> {
+						flag.countDown();
+					});
+					shouldWait.set(true);
+				}
+				// Clean the workspace
+				IProject[] existingProjects = wsr.getProjects();
+				for (IProject project : existingProjects) {
+					project.delete(true, true, new NullProgressMonitor());
+				}
+			}, new NullProgressMonitor());
+		} catch (CoreException e) {
 			throw Exceptions.duck(e);
+		}
+		if (shouldWait.get()) {
+			// Once the exclusive access rule has finished, we wait for the
+			// onCfWorkspace() event.
+			TaskUtils.waitForFlag(flag, "cleanWorkspace()");
 		}
 	}
 
-	public static void importProject(Path sourceProject, IProgressMonitor monitor) {
+	public static void importProject(Path sourceProject) {
 		IWorkspaceRoot wsr = ResourcesPlugin.getWorkspace()
 			.getRoot();
 
-		TaskUtils.log("importing sourceProject: " + sourceProject);
+		log("importing sourceProject: " + sourceProject);
 		String projectName = sourceProject.getFileName()
 			.toString();
 		IProject project = wsr.getProject(projectName);
@@ -113,11 +101,44 @@ public class WorkspaceImporter {
 			FileSystemStructureProvider.INSTANCE, overwriteQuery);
 		importOperation.setCreateContainerStructure(false);
 		try {
-			importOperation.run(monitor);
+			importOperation.run(new NullProgressMonitor());
 		} catch (InterruptedException e) {
 			throw Exceptions.duck(e);
 		} catch (InvocationTargetException e) {
 			throw Exceptions.duck(e.getTargetException());
 		}
+	}
+
+	public void importWorkspace() {
+		importWorkspace(root);
+	}
+
+	public static void importWorkspace(Path ourRoot) {
+		IWorkspace ws = ResourcesPlugin.getWorkspace();
+		IWorkspaceRoot wsr = ResourcesPlugin.getWorkspace()
+			.getRoot();
+
+		final CountDownLatch flag = new CountDownLatch(1);
+		TaskUtils.log("import workspace: " + ourRoot);
+		try {
+			List<Path> sourceProjects = Files.walk(ourRoot, 1)
+				.filter(x -> !x.equals(ourRoot))
+				.collect(Collectors.toList());
+			ws.run(monitor -> {
+				// Wait for Workspace object to be complete.
+				Central.onCnfWorkspace(bndWS -> {
+					flag.countDown();
+				});
+
+				log("importing " + sourceProjects.size() + " projects");
+				sourceProjects.forEach(path -> importProject(path));
+				log("done importing");
+			}, new NullProgressMonitor());
+		} catch (Exception e) {
+			throw Exceptions.duck(e);
+		}
+		// Once the exclusive access rule has finished, we wait for the
+		// onCfWorkspace() event.
+		TaskUtils.waitForFlag(flag, "cleanWorkspace()");
 	}
 }

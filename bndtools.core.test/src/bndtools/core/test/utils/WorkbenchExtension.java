@@ -4,11 +4,8 @@ import static aQute.bnd.exceptions.RunnableWithException.asRunnable;
 import static bndtools.core.test.utils.TaskUtils.log;
 
 import java.lang.reflect.Modifier;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.eclipse.swt.widgets.Display;
@@ -89,12 +86,8 @@ public class WorkbenchExtension implements BeforeAllCallback {
 				}
 			});
 
-		List<Path> sourceProjects = Files.walk(ourRoot, 1)
-			.filter(x -> !x.equals(ourRoot))
-			.collect(Collectors.toList());
-
-		log("importing: " + sourceProjects.size() + " projects");
-		WorkspaceImporter.importAllProjects(sourceProjects.stream());
+		WorkspaceImporter.cleanWorkspace();
+		importer.importWorkspace();
 		log("done importing");
 	}
 
