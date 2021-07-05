@@ -119,9 +119,6 @@ abstract class AbstractBuildpathQuickFixProcessorTest {
 
 	@BeforeAll
 	static void beforeAllBase() throws Exception {
-		// Get a handle on the repo. I have seen this come back null on occasion
-		// but not exactly sure why and spinning doesn't seem to fix it; ref
-		// #4253
 		final LocalIndexedRepo localRepo = (LocalIndexedRepo) Central.getWorkspace()
 			.getRepository("Local Index");
 
@@ -237,7 +234,7 @@ abstract class AbstractBuildpathQuickFixProcessorTest {
 					model.setBuildPath(Collections.emptyList());
 					model.saveChanges();
 					Central.refresh(bndProject);
-					TaskUtils.waitForFlag(flag, "clearBuildpath()");
+					TaskUtils.waitForFlag(flag, "clearBuildpath()", 30000);
 				} finally {
 					JavaCore.removeElementChangedListener(listener);
 				}
@@ -267,7 +264,7 @@ abstract class AbstractBuildpathQuickFixProcessorTest {
 				try {
 					model.saveChanges();
 					Central.refresh(bndProject);
-					TaskUtils.waitForFlag(flag, "addBundlesToBuildpath()");
+					TaskUtils.waitForFlag(flag, "addBundlesToBuildpath()", 30000);
 				} finally {
 					JavaCore.removeElementChangedListener(listener);
 				}
@@ -299,6 +296,7 @@ abstract class AbstractBuildpathQuickFixProcessorTest {
 					break;
 				case IJavaElement.JAVA_PROJECT :
 					if (isClasspathChanged(delta.getFlags())) {
+						log("Classpath changed, signalling");
 						flag.countDown();
 					}
 					break;
@@ -307,7 +305,7 @@ abstract class AbstractBuildpathQuickFixProcessorTest {
 			}
 		}
 
-		private boolean isClasspathChanged(int flags) {
+		private static boolean isClasspathChanged(int flags) {
 			return 0 != (flags
 				& (IJavaElementDelta.F_CLASSPATH_CHANGED | IJavaElementDelta.F_RESOLVED_CLASSPATH_CHANGED));
 		}

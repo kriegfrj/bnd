@@ -6,6 +6,7 @@ import static bndtools.core.test.utils.TaskUtils.log;
 import java.lang.reflect.Modifier;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.CountDownLatch;
 import java.util.stream.Stream;
 
 import org.eclipse.swt.widgets.Display;
@@ -16,6 +17,7 @@ import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
 
 import aQute.bnd.exceptions.Exceptions;
+import bndtools.central.Central;
 
 /**
  * Jupiter extension for setting up a test workspace. This extension does the
@@ -55,6 +57,14 @@ public class WorkbenchExtension implements BeforeAllCallback {
 				.syncExec(asRunnable(() -> bndtoolsCore.start()));
 		}
 
+		CountDownLatch flag = new CountDownLatch(1);
+
+		log("Registering workspace callback");
+		Central.onAnyWorkspace(workspace -> {
+			flag.countDown();
+			log("workspace called back");
+		});
+
 		WorkbenchTest test = context.getRequiredTestClass()
 			.getAnnotation(WorkbenchTest.class);
 
@@ -86,6 +96,7 @@ public class WorkbenchExtension implements BeforeAllCallback {
 				}
 			});
 
+		TaskUtils.waitForFlag(flag, "initial workspace");
 		WorkspaceImporter.cleanWorkspace();
 		importer.importWorkspace();
 		log("done importing");

@@ -16,10 +16,12 @@ import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.ui.dialogs.IOverwriteQuery;
 import org.eclipse.ui.wizards.datatransfer.FileSystemStructureProvider;
 import org.eclipse.ui.wizards.datatransfer.ImportOperation;
 
+import aQute.bnd.build.Workspace;
 import aQute.bnd.exceptions.Exceptions;
 import bndtools.central.Central;
 
@@ -65,10 +67,11 @@ public class WorkspaceImporter {
 		AtomicBoolean shouldWait = new AtomicBoolean(false);
 		try {
 			ws.run(monitor -> {
-				if (wsr.getProject("cnf")
+				IProject cnfProject = wsr.getProject(Workspace.CNFDIR);
+				if (cnfProject.exists() && cnfProject.isOpen() && cnfProject.getFile(Workspace.BUILDFILE)
 					.exists()) {
 					// Wait for Workspace object to be complete.
-					Central.onCnfWorkspace(bndWS -> {
+					Central.onAnyWorkspace(bndWS -> {
 						flag.countDown();
 					});
 					shouldWait.set(true);
@@ -84,7 +87,7 @@ public class WorkspaceImporter {
 		}
 		if (shouldWait.get()) {
 			// Once the exclusive access rule has finished, we wait for the
-			// onCfWorkspace() event.
+			// onAnyWorkspace() event.
 			TaskUtils.waitForFlag(flag, "cleanWorkspace()");
 		}
 	}
@@ -109,11 +112,11 @@ public class WorkspaceImporter {
 		}
 	}
 
-	public void importWorkspace() {
+	public void importWorkspace() throws InterruptedException {
 		importWorkspace(root);
 	}
 
-	public static void importWorkspace(Path ourRoot) {
+	public static void importWorkspace(Path ourRoot) throws InterruptedException {
 		IWorkspace ws = ResourcesPlugin.getWorkspace();
 		IWorkspaceRoot wsr = ResourcesPlugin.getWorkspace()
 			.getRoot();
@@ -124,11 +127,12 @@ public class WorkspaceImporter {
 			List<Path> sourceProjects = Files.walk(ourRoot, 1)
 				.filter(x -> !x.equals(ourRoot))
 				.collect(Collectors.toList());
+
 			ws.run(monitor -> {
 				// Wait for Workspace object to be complete.
-				Central.onCnfWorkspace(bndWS -> {
-					flag.countDown();
-				});
+				// Central.onCnfWorkspace(bndWS -> {
+				// flag.countDown();
+				// });
 
 				log("importing " + sourceProjects.size() + " projects");
 				sourceProjects.forEach(path -> importProject(path));
@@ -139,6 +143,10 @@ public class WorkspaceImporter {
 		}
 		// Once the exclusive access rule has finished, we wait for the
 		// onCfWorkspace() event.
-		TaskUtils.waitForFlag(flag, "cleanWorkspace()");
+		// TaskUtils.waitForFlag(flag, "importWorkspace()");
+		Job.getJobManager()
+			.join(ResourcesPlugin.FAMILY_MANUAL_BUILD, null);
+		Job.getJobManager()
+			.join(ResourcesPlugin.FAMILY_AUTO_BUILD, null);
 	}
 }

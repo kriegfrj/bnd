@@ -70,8 +70,14 @@ public class TaskUtils {
 	}
 
 	public static void waitForFlag(CountDownLatch flag, String msg) {
+		waitForFlag(flag, msg, 10000);
+	}
+
+	public static void waitForFlag(CountDownLatch flag, String msg, int ms) {
 		try {
-			if (!flag.await(10000, TimeUnit.MILLISECONDS)) {
+			log("waiting for flag: " + msg);
+			if (!flag.await(ms, TimeUnit.MILLISECONDS)) {
+				log("timed out waiting for flag: " + msg);
 				throw new IllegalStateException("Timed out waiting for flag" + (msg == null ? "" : " " + msg));
 			}
 		} catch (InterruptedException e) {
