@@ -4,6 +4,7 @@ import org.eclipse.jface.action.Action;
 import org.eclipse.swt.SWT;
 import org.eclipse.ui.IEditorPart;
 
+import bndtools.facade.ExtensionFacade;
 import bndtools.launch.RunShortcut;
 
 public class RunAction extends Action {
@@ -19,6 +20,7 @@ public class RunAction extends Action {
 
 	@Override
 	public void run() {
+		new ExtensionFacade();
 		new RunShortcut().launch(editor, mode);
 	}
 }

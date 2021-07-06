@@ -22,13 +22,13 @@ import aQute.bnd.exceptions.Exceptions;
 
 public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExtensionFactory, InvocationHandler {
 
-	ServiceTracker<T, T>	tracker;
-	String					id;
-	IConfigurationElement	config;
-	String					propertyName;
-	Class<?>				downstreamClass;
-	Object					data;
-	BundleContext			bc;
+	ServiceTracker<Object, T>	tracker;
+	String						id;
+	IConfigurationElement		config;
+	String						propertyName;
+	Class<T>					downstreamClass;
+	Object						data;
+	BundleContext				bc;
 
 	@Override
 	public Object create() throws CoreException {
@@ -38,10 +38,10 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 		}, this);
 	}
 
-	class Customizer implements ServiceTrackerCustomizer<T, T> {
+	class Customizer implements ServiceTrackerCustomizer<Object, T> {
 
 		@Override
-		public Object addingService(ServiceReference<Object> reference) {
+		public T addingService(ServiceReference<Object> reference) {
 			System.err.println("addingService:" + reference);
 			final Object service = bc.getService(reference);
 			if (service instanceof IExecutableExtension) {
@@ -58,7 +58,9 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 				IExecutableExtensionFactory factory = (IExecutableExtensionFactory) service;
 				try {
 					System.err.println("Running factory.create()");
-					return factory.create();
+					@SuppressWarnings("unchecked")
+					final T retval = (T) factory.create();
+					return retval;
 				} catch (CoreException e) {
 					e.printStackTrace();
 					return null;
@@ -71,20 +73,22 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 				return null;
 			}
 			System.err.println("Returning non-factory extension");
-			return service;
+			@SuppressWarnings("unchecked")
+			final T retval = (T) service;
+			return retval;
 		}
 
 		@Override
-		public void modifiedService(ServiceReference<Object> reference, Object service) {}
+		public void modifiedService(ServiceReference<Object> reference, T service) {}
 
 		@Override
-		public void removedService(ServiceReference<Object> reference, Object service) {}
+		public void removedService(ServiceReference<Object> reference, T service) {}
 
 	}
 
-	Object getService() throws CoreException {
+	T getService() throws CoreException {
 		System.err.println("Attempting to get service");
-		Object retval = tracker.getService();
+		T retval = tracker.getService();
 		if (retval == null) {
 			throw new RuntimeException("Downstream service " + id + " not found");
 		}
@@ -103,7 +107,9 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 			+ propertyName + ", data: " + data);
 
 		try {
-			downstreamClass = Class.forName(data.toString());
+			@SuppressWarnings("unchecked")
+			final Class<T> clazz = (Class<T>) Class.forName(data.toString());
+			downstreamClass = clazz;
 		} catch (ClassNotFoundException e) {
 			throw new CoreException(
 				new Status(IStatus.ERROR, getClass(), 0, "Downstream interface for " + id + " not found", e));
@@ -128,6 +134,10 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 	 */
 	public ExtensionFacade() {}
 
+	public ExtensionFacade(String id) {
+		initializeTracker(id);
+	}
+
 	private void initializeTracker(String id) {
 		System.err.println("Initializing tracker for: " + System.identityHashCode(this) + ", id: " + id);
 		bc = FrameworkUtil.getBundle(ExtensionFacade.class)
@@ -136,7 +146,7 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 		try {
 			filter = bc.createFilter("(eclipse.id=" + id + ")");
 			System.err.println("Tracking services with filter: " + filter);
-			tracker = new ServiceTracker<T, T>(bc, filter, new Customizer());
+			tracker = new ServiceTracker<Object, T>(bc, filter, new Customizer());
 			tracker.open();
 		} catch (InvalidSyntaxException e) {
 			Exceptions.duck(e);
