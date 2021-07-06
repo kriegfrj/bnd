@@ -48,6 +48,7 @@ import aQute.bnd.build.ProjectTester;
 import aQute.bnd.service.EclipseJUnitTester;
 import aQute.lib.io.IO;
 import bndtools.Plugin;
+import bndtools.launch.util.LaunchConstants;
 import bndtools.launch.util.LaunchUtils;
 
 public class OSGiJUnitLaunchDelegate extends AbstractOSGiLaunchDelegate {

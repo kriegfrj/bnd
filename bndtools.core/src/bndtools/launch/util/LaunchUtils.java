@@ -18,7 +18,6 @@ import org.osgi.util.tracker.ServiceTracker;
 import aQute.bnd.build.Project;
 import aQute.bnd.build.Run;
 import bndtools.central.Central;
-import bndtools.launch.LaunchConstants;
 
 public final class LaunchUtils {
 	private static final ILogger							logger	= Logger.getLogger(LaunchUtils.class);

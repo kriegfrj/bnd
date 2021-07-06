@@ -39,6 +39,7 @@ import org.eclipse.ui.IEditorPart;
 
 import aQute.lib.strings.Strings;
 import bndtools.launch.api.AbstractLaunchShortcut;
+import bndtools.launch.util.LaunchConstants;
 
 public class JUnitShortcut extends AbstractLaunchShortcut {
 

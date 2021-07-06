@@ -29,8 +29,8 @@ import aQute.bnd.osgi.Processor;
 import aQute.lib.io.IO;
 import bndtools.Plugin;
 import bndtools.central.Central;
-import bndtools.launch.LaunchConstants;
 import bndtools.launch.ui.internal.LaunchStatusHandler;
+import bndtools.launch.util.LaunchConstants;
 import bndtools.launch.util.LaunchUtils;
 import bndtools.preferences.BndPreferences;
 

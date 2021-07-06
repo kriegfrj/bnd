@@ -42,7 +42,7 @@ import aQute.bnd.build.Project;
 import aQute.bnd.build.Workspace;
 import bndtools.Plugin;
 import bndtools.central.Central;
-import bndtools.launch.LaunchConstants;
+import bndtools.launch.util.LaunchConstants;
 import bndtools.utils.FileExtensionFilter;
 
 public class ProjectLaunchTabPiece extends AbstractLaunchTabPiece {

@@ -43,7 +43,7 @@ import aQute.bnd.build.Project;
 import bndtools.Plugin;
 import bndtools.editor.BndEditor;
 import bndtools.editor.pages.ProjectRunPage;
-import bndtools.launch.LaunchConstants;
+import bndtools.launch.util.LaunchConstants;
 
 public abstract class AbstractLaunchShortcut implements ILaunchShortcut2 {
 	private static final ILogger	logger	= Logger.getLogger(AbstractLaunchShortcut.class);

@@ -13,8 +13,8 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Group;
 
-import bndtools.launch.LaunchConstants;
 import bndtools.launch.ui.AbstractLaunchTabPiece;
+import bndtools.launch.util.LaunchConstants;
 
 public class JUnitTestParamsLaunchTabPiece extends AbstractLaunchTabPiece {
 

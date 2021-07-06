@@ -140,6 +140,8 @@ public class Central implements IStartupParticipant {
 	public void start() {
 		instance = this;
 
+		System.err.println("IStartupParticipant." + "start()");
+
 		repoListenerTracker = new RepositoryListenerPluginTracker(bundleContext);
 		repoListenerTracker.open();
 		internalPlugins.open();

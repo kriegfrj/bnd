@@ -1,4 +1,4 @@
-package bndtools.launch;
+package bndtools.launch.util;
 
 public interface LaunchConstants {
 

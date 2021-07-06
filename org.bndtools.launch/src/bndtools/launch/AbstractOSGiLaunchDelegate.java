@@ -50,6 +50,7 @@ import aQute.lib.io.IO;
 import bndtools.Plugin;
 import bndtools.StatusCode;
 import bndtools.central.Central;
+import bndtools.launch.util.LaunchConstants;
 import bndtools.launch.util.LaunchUtils;
 import bndtools.preferences.BndPreferences;
 

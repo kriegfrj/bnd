@@ -15,7 +15,7 @@ import aQute.bnd.build.model.clauses.ExportedPackage;
 import aQute.bnd.build.model.clauses.HeaderClause;
 import aQute.bnd.build.model.clauses.ImportPattern;
 import aQute.bnd.osgi.Constants;
-import bndtools.launch.LaunchConstants;
+import bndtools.launch.util.LaunchConstants;
 
 public class BndEditorContentOutlineProvider implements ITreeContentProvider, PropertyChangeListener {
 

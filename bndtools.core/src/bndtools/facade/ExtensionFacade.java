@@ -20,9 +20,9 @@ import org.osgi.util.tracker.ServiceTrackerCustomizer;
 
 import aQute.bnd.exceptions.Exceptions;
 
-public class ExtensionFacade implements IExecutableExtension, IExecutableExtensionFactory, InvocationHandler {
+public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExtensionFactory, InvocationHandler {
 
-	ServiceTracker<Object, Object>	tracker;
+	ServiceTracker<T, T>	tracker;
 	String					id;
 	IConfigurationElement	config;
 	String					propertyName;
@@ -38,7 +38,7 @@ public class ExtensionFacade implements IExecutableExtension, IExecutableExtensi
 		}, this);
 	}
 
-	class Customizer implements ServiceTrackerCustomizer<Object, Object> {
+	class Customizer implements ServiceTrackerCustomizer<T, T> {
 
 		@Override
 		public Object addingService(ServiceReference<Object> reference) {
@@ -136,7 +136,7 @@ public class ExtensionFacade implements IExecutableExtension, IExecutableExtensi
 		try {
 			filter = bc.createFilter("(eclipse.id=" + id + ")");
 			System.err.println("Tracking services with filter: " + filter);
-			tracker = new ServiceTracker<>(bc, filter, new Customizer());
+			tracker = new ServiceTracker<T, T>(bc, filter, new Customizer());
 			tracker.open();
 		} catch (InvalidSyntaxException e) {
 			Exceptions.duck(e);
