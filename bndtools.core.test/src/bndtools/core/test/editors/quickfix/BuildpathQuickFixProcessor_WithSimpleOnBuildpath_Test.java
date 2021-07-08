@@ -220,17 +220,17 @@ public class BuildpathQuickFixProcessor_WithSimpleOnBuildpath_Test extends Abstr
 			+ "String myMethod() { \n" + "  field.length();" + "  method();" + "  return field;" + "}" + "}";
 
 		// HierarchyHasProblems on "Test"
-		assertThatProposals(proposalsFor(20 + 1, 0, source)).haveExactly(1, suggestsBundle(
-			"bndtools.core.test.fodder.iface", "1.0.0", "iface.bundle.MyForeignRecursiveClass"));
+		assertThatProposals(proposalsFor(20 + 1, 0, source)).haveExactly(1,
+			suggestsBundle("bndtools.core.test.fodder.iface", "1.0.0", "iface.bundle.MyForeignRecursiveClass"));
 		// UnknownName on "field.length()"
-		assertThatProposals(proposalsFor(111 + 1, 0, source)).haveExactly(1, suggestsBundle(
-			"bndtools.core.test.fodder.iface", "1.0.0", "iface.bundle.MyForeignRecursiveClass"));
+		assertThatProposals(proposalsFor(111 + 1, 0, source)).haveExactly(1,
+			suggestsBundle("bndtools.core.test.fodder.iface", "1.0.0", "iface.bundle.MyForeignRecursiveClass"));
 		// UnknownMethod on "method()"
-		assertThatProposals(proposalsFor(128 + 1, 0, source)).haveExactly(1, suggestsBundle(
-			"bndtools.core.test.fodder.iface", "1.0.0", "iface.bundle.MyForeignRecursiveClass"));
+		assertThatProposals(proposalsFor(128 + 1, 0, source)).haveExactly(1,
+			suggestsBundle("bndtools.core.test.fodder.iface", "1.0.0", "iface.bundle.MyForeignRecursiveClass"));
 		// UnknownField on "return field"
-		assertThatProposals(proposalsFor(146 + 1, 0, source)).haveExactly(1, suggestsBundle(
-			"bndtools.core.test.fodder.iface", "1.0.0", "iface.bundle.MyForeignRecursiveClass"));
+		assertThatProposals(proposalsFor(146 + 1, 0, source)).haveExactly(1,
+			suggestsBundle("bndtools.core.test.fodder.iface", "1.0.0", "iface.bundle.MyForeignRecursiveClass"));
 	}
 
 	@Test
@@ -293,13 +293,12 @@ public class BuildpathQuickFixProcessor_WithSimpleOnBuildpath_Test extends Abstr
 		// access" warning. If it is a package that is exported by another
 		// bundle, the easy way to fix it is to add the other bundle to the
 		// build path.
-		String header = "package test; "
-			+ "import iface.embedded.*; class " + DEFAULT_CLASS_NAME + " extends ";
+		String header = "package test; " + "import iface.embedded.*; class " + DEFAULT_CLASS_NAME + " extends ";
 		String source = header + "Embedded {}";
 
-		assertThatProposals(proposalsFor(header.length() + 2, 0, source)).haveExactly(1,
-			suggestsBundle("bndtools.core.test.fodder.iface", "1.0.0", "iface.embedded.Embedded"));
-
+		assertThatProposals(proposalsFor(header.length() + 2, 0, source))
+			.haveExactly(1, suggestsBundle("bndtools.core.test.fodder.iface", "1.0.0", "iface.embedded.Embedded"))
+			.haveExactly(1, suggestsCondPackage("iface.embedded"));
 	}
 
 	@Test
@@ -312,8 +311,8 @@ public class BuildpathQuickFixProcessor_WithSimpleOnBuildpath_Test extends Abstr
 		String header = "package test; import ";
 		String source = header + "iface.embedded.Embedded; class " + DEFAULT_CLASS_NAME + " extends Embedded {}";
 
-		assertThatProposals(proposalsFor(header.length() + 2, 0, source)).haveExactly(1,
-			suggestsBundle("bndtools.core.test.fodder.iface", "1.0.0", "iface.embedded.Embedded"));
-
+		assertThatProposals(proposalsFor(header.length() + 2, 0, source))
+			.haveExactly(1, suggestsBundle("bndtools.core.test.fodder.iface", "1.0.0", "iface.embedded.Embedded"))
+			.haveExactly(1, suggestsCondPackage("iface.embedded"));
 	}
 }

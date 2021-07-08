@@ -471,11 +471,8 @@ abstract class AbstractBuildpathQuickFixProcessorTest {
 	protected static class MatchDisplayString extends Condition<IJavaCompletionProposal> {
 		private final Pattern p;
 
-		public MatchDisplayString(String bundle, String version, String fqName, boolean test) {
-			super(String.format("Suggestion to add '%s' to -%spath for class %s", bundle, test ? "test" : "build",
-				fqName));
-			String re = String.format("^Add \\Q%s\\E to -\\Q%s\\Epath [(]found \\Q%s\\E[)]", bundle,
-				test ? "test" : "build", fqName);
+		MatchDisplayString(String desc, String re) {
+			super(desc);
 			p = Pattern.compile(re);
 		}
 
@@ -489,6 +486,24 @@ abstract class AbstractBuildpathQuickFixProcessorTest {
 		}
 	}
 
+	protected static class MatchAddProposalDisplayString extends MatchDisplayString {
+
+		public MatchAddProposalDisplayString(String bundle, String version, String fqName, boolean test) {
+			super(String.format("Suggestion to add '%s' to -%spath for class %s", bundle, test ? "test" : "build",
+				fqName),
+				String.format("^Add \\Q%s\\E to -\\Q%s\\Epath [(]found \\Q%s\\E[)]", bundle,
+				test ? "test" : "build", fqName));
+		}
+
+	}
+
+	protected static class MatchCondPackageDisplayString extends MatchDisplayString {
+		public MatchCondPackageDisplayString(String pack) {
+			super(String.format("Suggestion to add '%s' to -conditionalpackage", pack),
+				String.format("^Add \\Q%s\\E to -conditionalpackage$", pack));
+		}
+	}
+
 	protected void assertThatContainsFrameworkBundles(IJavaCompletionProposal[] proposals, String fqName) {
 		assertThatProposals(proposals).withRepresentation(PROPOSAL)
 			.hasSize(1)
@@ -496,7 +511,11 @@ abstract class AbstractBuildpathQuickFixProcessorTest {
 	}
 
 	protected static Condition<IJavaCompletionProposal> suggestsBundle(String bundle, String version, String fqName) {
-		return new MatchDisplayString(bundle, version, fqName, false);
+		return new MatchAddProposalDisplayString(bundle, version, fqName, false);
+	}
+
+	protected static Condition<IJavaCompletionProposal> suggestsCondPackage(String pack) {
+		return new MatchCondPackageDisplayString(pack);
 	}
 
 	static Condition<IJavaCompletionProposal> withRelevance(final int relevance) {
