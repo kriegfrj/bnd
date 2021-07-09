@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import org.bndtools.api.launch.LaunchConstants;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
@@ -17,9 +18,11 @@ import org.eclipse.debug.core.DebugPlugin;
 import org.eclipse.debug.core.ILaunch;
 import org.eclipse.debug.core.ILaunchConfiguration;
 import org.eclipse.debug.core.IStatusHandler;
+import org.eclipse.debug.core.model.ILaunchConfigurationDelegate2;
 import org.eclipse.debug.core.model.IProcess;
 import org.eclipse.jdt.internal.launching.JavaRemoteApplicationLaunchConfigurationDelegate;
 import org.eclipse.jdt.launching.IJavaLaunchConfigurationConstants;
+import org.osgi.service.component.annotations.Component;
 
 import aQute.bnd.build.Project;
 import aQute.bnd.build.ProjectLauncher;
@@ -30,7 +33,6 @@ import aQute.lib.io.IO;
 import bndtools.Plugin;
 import bndtools.central.Central;
 import bndtools.launch.ui.internal.LaunchStatusHandler;
-import bndtools.launch.util.LaunchConstants;
 import bndtools.launch.util.LaunchUtils;
 import bndtools.preferences.BndPreferences;
 
@@ -40,6 +42,9 @@ import bndtools.preferences.BndPreferences;
  * bnd launch and attach the debugger if necessary. This has the advantage we
  * can add features in bnd and we are sure fidelity is maintained.
  */
+@Component(property = {
+	"eclipse.id=bndtools.launch.native"
+}, service = ILaunchConfigurationDelegate2.class)
 public class NativeBndLaunchDelegate extends JavaRemoteApplicationLaunchConfigurationDelegate {
 	volatile boolean canceled = false;
 

@@ -21,6 +21,9 @@ import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.debug.core.model.ILaunchConfigurationDelegate2;
+import org.eclipse.debug.core.sourcelookup.ISourceLookupDirector;
+import org.eclipse.debug.ui.ILaunchShortcut;
 import org.eclipse.jface.dialogs.ErrorDialog;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.resource.ImageDescriptor;
@@ -62,6 +65,10 @@ public class Plugin extends AbstractUIPlugin {
 	private volatile VersionControlIgnoresManagerTracker			versionControlIgnoresManager;
 
 	private volatile ScheduledExecutorService						scheduler;
+
+	static final Class<ILaunchConfigurationDelegate2>				C1					= ILaunchConfigurationDelegate2.class;
+	static final Class<ILaunchShortcut>								C2					= ILaunchShortcut.class;
+	static final Class<ISourceLookupDirector>						C3					= ISourceLookupDirector.class;
 
 	@Override
 	public void start(BundleContext context) throws Exception {

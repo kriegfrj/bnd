@@ -1,10 +1,11 @@
-package bndtools.launch.util;
+package org.bndtools.api.launch;
 
 public interface LaunchConstants {
 
 	String	EXT_BND						= ".bnd";
 	String	EXT_BNDRUN					= ".bndrun";
 
+	String	LAUNCH_ID_OSGI_NATIVE		= "bndtools.launch.native";
 	String	LAUNCH_ID_OSGI_RUNTIME		= "bndtools.launch";
 	String	LAUNCH_ID_OSGI_JUNIT		= "bndtools.launch.junit";
 

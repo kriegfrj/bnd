@@ -1,9 +1,15 @@
-package bndtools.facade;
+package org.bndtools.facade;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.BiConsumer;
 
+import org.bndtools.api.launch.LaunchConstants;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IExecutableExtension;
@@ -19,6 +25,7 @@ import org.osgi.util.tracker.ServiceTracker;
 import org.osgi.util.tracker.ServiceTrackerCustomizer;
 
 import aQute.bnd.exceptions.Exceptions;
+import bndtools.Plugin;
 
 public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExtensionFactory, InvocationHandler {
 
@@ -60,6 +67,7 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 					System.err.println("Running factory.create()");
 					@SuppressWarnings("unchecked")
 					final T retval = (T) factory.create();
+					onNewService.forEach(callback -> callback.accept(reference, retval));
 					return retval;
 				} catch (CoreException e) {
 					e.printStackTrace();
@@ -75,6 +83,7 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 			System.err.println("Returning non-factory extension");
 			@SuppressWarnings("unchecked")
 			final T retval = (T) service;
+			onNewService.forEach(callback -> callback.accept(reference, retval));
 			return retval;
 		}
 
@@ -82,17 +91,46 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 		public void modifiedService(ServiceReference<Object> reference, T service) {}
 
 		@Override
-		public void removedService(ServiceReference<Object> reference, T service) {}
+		public void removedService(ServiceReference<Object> reference, T service) {
+			onClosedService.forEach(callback -> callback.accept(reference, service));
+		}
 
 	}
 
-	T getService() throws CoreException {
-		System.err.println("Attempting to get service");
-		T retval = tracker.getService();
-		if (retval == null) {
-			throw new RuntimeException("Downstream service " + id + " not found");
-		}
-		return retval;
+	List<BiConsumer<ServiceReference<Object>, T>>	onNewService	= new ArrayList<>();
+	List<BiConsumer<ServiceReference<Object>, T>>	onClosedService	= new ArrayList<>();
+
+	public void onNewService(BiConsumer<ServiceReference<Object>, T> callback) {
+		onNewService.add(callback);
+	}
+
+	public void onClosedService(BiConsumer<ServiceReference<Object>, T> callback) {
+		onClosedService.add(callback);
+	}
+
+	public boolean isEmpty() {
+		return tracker.isEmpty();
+	}
+
+	public int size() {
+		return tracker.size();
+	}
+
+	public Optional<T> getService() {
+		return Optional.ofNullable(tracker.getService());
+	}
+
+	public T getRequiredService() {
+		System.err.println("Attempting to get service " + id);
+		return getService().orElseThrow(() -> {
+			Plugin.getDefault()
+				.getLog()
+				.log(new Status(IStatus.WARNING, Plugin.PLUGIN_ID, 0,
+					MessageFormat.format("The {0} attribute is no longer supported, use {1} instead.", ,
+						LaunchConstants.ATTR_TRACE),
+					null));
+			return new RuntimeException("Service " + id + " (" + downstreamClass.getCanonicalName() + ") not found");
+		});
 	}
 
 	@Override
@@ -107,6 +145,8 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 			+ propertyName + ", data: " + data);
 
 		try {
+			System.err.println("contextClassloader: " + Thread.currentThread()
+				.getContextClassLoader());
 			@SuppressWarnings("unchecked")
 			final Class<T> clazz = (Class<T>) Class.forName(data.toString());
 			downstreamClass = clazz;
@@ -125,7 +165,18 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 		// : Stream.of(args)
 		// .map(Object::toString)
 		// .collect(Collectors.joining(",")) + ")"));
-		return method.invoke(getService(), args);
+		ClassLoader current = Thread.currentThread()
+			.getContextClassLoader();
+		try {
+			Object service = getRequiredService();
+			Thread.currentThread()
+				.setContextClassLoader(service.getClass()
+					.getClassLoader());
+			return method.invoke(service, args);
+		} finally {
+			Thread.currentThread()
+				.setContextClassLoader(current);
+		}
 	}
 
 	/**
@@ -134,7 +185,12 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 	 */
 	public ExtensionFacade() {}
 
-	public ExtensionFacade(String id) {
+	/**
+	 * Constructor for programmatic instantiation.
+	 *
+	 * @param id
+	 */
+	public ExtensionFacade(String id, Class<T> downstreamType) {
 		initializeTracker(id);
 	}
 

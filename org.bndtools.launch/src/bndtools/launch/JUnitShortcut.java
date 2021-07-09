@@ -7,12 +7,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.bndtools.api.launch.LaunchConstants;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.debug.core.ILaunchConfiguration;
 import org.eclipse.debug.core.ILaunchConfigurationWorkingCopy;
 import org.eclipse.debug.ui.DebugUITools;
+import org.eclipse.debug.ui.ILaunchShortcut2;
 import org.eclipse.jdt.core.Flags;
 import org.eclipse.jdt.core.IAnnotation;
 import org.eclipse.jdt.core.ICompilationUnit;
@@ -36,11 +38,14 @@ import org.eclipse.jdt.ui.JavaUI;
 import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
+import org.osgi.service.component.annotations.Component;
 
 import aQute.lib.strings.Strings;
 import bndtools.launch.api.AbstractLaunchShortcut;
-import bndtools.launch.util.LaunchConstants;
 
+@Component(property = {
+	"eclipse.id=bndtools.launch.junitShortcut"
+}, service = ILaunchShortcut2.class)
 public class JUnitShortcut extends AbstractLaunchShortcut {
 
 	public JUnitShortcut() {

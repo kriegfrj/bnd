@@ -8,7 +8,11 @@ import org.eclipse.debug.core.IStatusHandler;
 import org.eclipse.jface.window.Window;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.PlatformUI;
+import org.osgi.service.component.annotations.Component;
 
+@Component(property = {
+	"eclipse.id=bndtools.core.debug.statusHandler"
+})
 public class LaunchStatusHandler implements IStatusHandler {
 
 	@Override

@@ -18,7 +18,8 @@
 -runproperties.win32: \
 	osgi.ws=win32,\
 	osgi.arch=x86_64,\
-	osgi.os=win32
+	osgi.os=win32,\
+	tester.names=BuildpathQuickFixProcessor_WithSimpleOnBuildpath_Test:withEmbeddedPackageOnBuildPath_suggestsOriginalBundle
 
 -runblacklist.win32: \
 	osgi.identity;filter:='(osgi.identity=*macosx*)',\

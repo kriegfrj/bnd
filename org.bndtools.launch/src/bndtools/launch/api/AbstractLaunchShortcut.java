@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.bndtools.api.ILogger;
 import org.bndtools.api.Logger;
+import org.bndtools.api.launch.LaunchConstants;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -43,7 +44,6 @@ import aQute.bnd.build.Project;
 import bndtools.Plugin;
 import bndtools.editor.BndEditor;
 import bndtools.editor.pages.ProjectRunPage;
-import bndtools.launch.util.LaunchConstants;
 
 public abstract class AbstractLaunchShortcut implements ILaunchShortcut2 {
 	private static final ILogger	logger	= Logger.getLogger(AbstractLaunchShortcut.class);

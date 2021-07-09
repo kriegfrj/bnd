@@ -9,6 +9,7 @@ import java.util.List;
 import org.bndtools.api.BndtoolsConstants;
 import org.bndtools.api.ILogger;
 import org.bndtools.api.Logger;
+import org.bndtools.api.launch.LaunchConstants;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -42,7 +43,6 @@ import aQute.bnd.build.Project;
 import aQute.bnd.build.Workspace;
 import bndtools.Plugin;
 import bndtools.central.Central;
-import bndtools.launch.util.LaunchConstants;
 import bndtools.utils.FileExtensionFilter;
 
 public class ProjectLaunchTabPiece extends AbstractLaunchTabPiece {

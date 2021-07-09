@@ -6,6 +6,7 @@ import org.bndtools.api.Logger;
 import org.bndtools.api.RunListener;
 import org.bndtools.api.RunMode;
 import org.bndtools.api.RunProvider;
+import org.bndtools.api.launch.LaunchConstants;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;

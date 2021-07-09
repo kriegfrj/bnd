@@ -4,12 +4,17 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.debug.core.ILaunchConfiguration;
 import org.eclipse.debug.core.sourcelookup.AbstractSourceLookupDirector;
 import org.eclipse.debug.core.sourcelookup.ISourceContainer;
+import org.eclipse.debug.core.sourcelookup.ISourceLookupDirector;
 import org.eclipse.debug.core.sourcelookup.ISourceLookupParticipant;
 import org.eclipse.debug.core.sourcelookup.containers.DefaultSourceContainer;
 import org.eclipse.jdt.launching.sourcelookup.containers.JavaSourceLookupParticipant;
+import org.osgi.service.component.annotations.Component;
 
 import bndtools.launch.sourcelookup.containers.BndDependencySourceContainer;
 
+@Component(property = {
+	"eclipse.id=org.bndtools.core.launch.BndDependencySourceLookupDirector"
+}, service = ISourceLookupDirector.class)
 public class BndDependencySourceLookupDirector extends AbstractSourceLookupDirector {
 
 	@Override

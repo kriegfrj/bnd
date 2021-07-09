@@ -10,9 +10,13 @@ import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
+import org.osgi.service.component.annotations.Component;
 
 import bndtools.perspective.BndPerspective;
 
+@Component(property = {
+	"eclipse.id=bndtools.core.debug.junitStatusHandler"
+})
 public class JUnitViewOpenerStatusHandler implements IStatusHandler {
 	private static final ILogger logger = Logger.getLogger(JUnitViewOpenerStatusHandler.class);
 

@@ -14,6 +14,7 @@ import java.util.logging.Level;
 import org.bndtools.api.ILogger;
 import org.bndtools.api.Logger;
 import org.bndtools.api.RunMode;
+import org.bndtools.api.launch.LaunchConstants;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceChangeListener;
@@ -50,7 +51,6 @@ import aQute.lib.io.IO;
 import bndtools.Plugin;
 import bndtools.StatusCode;
 import bndtools.central.Central;
-import bndtools.launch.util.LaunchConstants;
 import bndtools.launch.util.LaunchUtils;
 import bndtools.preferences.BndPreferences;
 

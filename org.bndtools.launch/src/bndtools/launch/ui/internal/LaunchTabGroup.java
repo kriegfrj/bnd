@@ -5,9 +5,14 @@ import org.eclipse.debug.ui.CommonTab;
 import org.eclipse.debug.ui.EnvironmentTab;
 import org.eclipse.debug.ui.ILaunchConfigurationDialog;
 import org.eclipse.debug.ui.ILaunchConfigurationTab;
+import org.eclipse.debug.ui.ILaunchConfigurationTabGroup;
 import org.eclipse.debug.ui.sourcelookup.SourceLookupTab;
 import org.eclipse.jdt.debug.ui.launchConfigurations.JavaJRETab;
+import org.osgi.service.component.annotations.Component;
 
+@Component(property = {
+	"eclipse.id=aQute.bnd.launch.tabgroup"
+}, service = ILaunchConfigurationTabGroup.class)
 public class LaunchTabGroup extends AbstractLaunchConfigurationTabGroup {
 
 	@Override

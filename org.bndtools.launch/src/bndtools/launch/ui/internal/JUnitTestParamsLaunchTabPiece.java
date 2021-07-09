@@ -1,5 +1,6 @@
 package bndtools.launch.ui.internal;
 
+import org.bndtools.api.launch.LaunchConstants;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.debug.core.ILaunchConfiguration;
 import org.eclipse.debug.core.ILaunchConfigurationWorkingCopy;
@@ -14,7 +15,6 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Group;
 
 import bndtools.launch.ui.AbstractLaunchTabPiece;
-import bndtools.launch.util.LaunchConstants;
 
 public class JUnitTestParamsLaunchTabPiece extends AbstractLaunchTabPiece {
 

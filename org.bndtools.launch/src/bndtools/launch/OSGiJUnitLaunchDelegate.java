@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 import org.bndtools.api.ILogger;
 import org.bndtools.api.Logger;
 import org.bndtools.api.RunMode;
+import org.bndtools.api.launch.LaunchConstants;
 import org.bndtools.utils.osgi.BundleUtils;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -31,6 +32,7 @@ import org.eclipse.debug.core.ILaunch;
 import org.eclipse.debug.core.ILaunchConfiguration;
 import org.eclipse.debug.core.ILaunchConfigurationWorkingCopy;
 import org.eclipse.debug.core.IStatusHandler;
+import org.eclipse.debug.core.model.ILaunchConfigurationDelegate2;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.internal.junit.JUnitCorePlugin;
 import org.eclipse.jdt.internal.junit.JUnitPreferencesConstants;
@@ -41,6 +43,7 @@ import org.eclipse.jdt.launching.IJavaLaunchConfigurationConstants;
 import org.eclipse.jdt.launching.SocketUtil;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
+import org.osgi.service.component.annotations.Component;
 
 import aQute.bnd.build.Project;
 import aQute.bnd.build.ProjectLauncher;
@@ -48,9 +51,11 @@ import aQute.bnd.build.ProjectTester;
 import aQute.bnd.service.EclipseJUnitTester;
 import aQute.lib.io.IO;
 import bndtools.Plugin;
-import bndtools.launch.util.LaunchConstants;
 import bndtools.launch.util.LaunchUtils;
 
+@Component(property = {
+	"eclipse.id=bndtools.launch.junit"
+}, service = ILaunchConfigurationDelegate2.class)
 public class OSGiJUnitLaunchDelegate extends AbstractOSGiLaunchDelegate {
 	private static final ILogger	logger					= Logger.getLogger(OSGiJUnitLaunchDelegate.class);
 	private final static String		JNAME_S					= "\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*";

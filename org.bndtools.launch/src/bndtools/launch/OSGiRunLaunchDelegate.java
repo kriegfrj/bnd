@@ -9,6 +9,7 @@ import org.eclipse.core.runtime.SubMonitor;
 import org.eclipse.debug.core.DebugPlugin;
 import org.eclipse.debug.core.ILaunch;
 import org.eclipse.debug.core.ILaunchConfiguration;
+import org.eclipse.debug.core.model.ILaunchConfigurationDelegate2;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.dialogs.PopupDialog;
@@ -25,6 +26,7 @@ import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.internal.Workbench;
+import org.osgi.service.component.annotations.Component;
 
 import aQute.bnd.build.Project;
 import aQute.bnd.build.ProjectLauncher;
@@ -32,6 +34,9 @@ import aQute.bnd.build.ProjectLauncher.NotificationType;
 import aQute.bnd.result.Result;
 import bndtools.Plugin;
 
+@Component(property = {
+	"eclipse.id=bndtools.launch"
+}, service = ILaunchConfigurationDelegate2.class)
 public class OSGiRunLaunchDelegate extends AbstractOSGiLaunchDelegate {
 	private ProjectLauncher	bndLauncher	= null;
 
