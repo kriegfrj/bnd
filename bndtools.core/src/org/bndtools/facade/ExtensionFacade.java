@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
-import org.bndtools.api.launch.LaunchConstants;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IExecutableExtension;
@@ -125,10 +124,8 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 		return getService().orElseThrow(() -> {
 			Plugin.getDefault()
 				.getLog()
-				.log(new Status(IStatus.WARNING, Plugin.PLUGIN_ID, 0,
-					MessageFormat.format("The {0} attribute is no longer supported, use {1} instead.", ,
-						LaunchConstants.ATTR_TRACE),
-					null));
+				.log(new Status(IStatus.WARNING, Plugin.PLUGIN_ID,
+					MessageFormat.format("Service {0} ({1}) not found.", id, downstreamClass.getCanonicalName())));
 			return new RuntimeException("Service " + id + " (" + downstreamClass.getCanonicalName() + ") not found");
 		});
 	}
