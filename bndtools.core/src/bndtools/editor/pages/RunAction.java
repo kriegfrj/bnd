@@ -4,6 +4,7 @@ import org.bndtools.facade.ExtensionFacade;
 import org.eclipse.debug.ui.ILaunchShortcut2;
 import org.eclipse.jface.action.Action;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IEditorPart;
 
 public class RunAction extends Action {
@@ -16,7 +17,12 @@ public class RunAction extends Action {
 		super("Run OSGi", SWT.RIGHT);
 		this.editor = editor;
 		this.mode = mode;
-		facade = new ExtensionFacade<>("org.bndtools.launch.RunShortcut", ILaunchShortcut2.class);
+		facade = new ExtensionFacade<>("bndtools.launch.runShortcut", ILaunchShortcut2.class);
+		facade.onClosedService((ref, obj) -> Display.getDefault()
+			.syncExec(() -> setEnabled(false)));
+		facade.onNewService((ref, obj) -> Display.getDefault()
+			.syncExec(() -> setEnabled(true)));
+		setEnabled(facade.size() > 0);
 	}
 
 	@Override

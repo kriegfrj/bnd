@@ -66,7 +66,10 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 					System.err.println("Running factory.create()");
 					@SuppressWarnings("unchecked")
 					final T retval = (T) factory.create();
-					onNewService.forEach(callback -> callback.accept(reference, retval));
+					onNewService.forEach(callback -> {
+						System.err.println("notifying " + callback);
+						callback.accept(reference, retval);
+					});
 					return retval;
 				} catch (CoreException e) {
 					e.printStackTrace();
@@ -82,7 +85,10 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 			System.err.println("Returning non-factory extension");
 			@SuppressWarnings("unchecked")
 			final T retval = (T) service;
-			onNewService.forEach(callback -> callback.accept(reference, retval));
+			onNewService.forEach(callback -> {
+				System.err.println("notifying " + callback);
+				callback.accept(reference, retval);
+			});
 			return retval;
 		}
 
@@ -91,7 +97,11 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 
 		@Override
 		public void removedService(ServiceReference<Object> reference, T service) {
-			onClosedService.forEach(callback -> callback.accept(reference, service));
+			System.err.println("Notifying of service removal");
+			onClosedService.forEach(callback -> {
+				System.err.println("notifying " + callback);
+				callback.accept(reference, service);
+			});
 		}
 
 	}
@@ -188,6 +198,7 @@ public class ExtensionFacade<T> implements IExecutableExtension, IExecutableExte
 	 * @param id
 	 */
 	public ExtensionFacade(String id, Class<T> downstreamType) {
+		downstreamClass = downstreamType;
 		initializeTracker(id);
 	}
 
