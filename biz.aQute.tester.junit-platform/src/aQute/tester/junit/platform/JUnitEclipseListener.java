@@ -1,6 +1,8 @@
 package aQute.tester.junit.platform;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
+import static org.junit.platform.engine.discovery.DiscoverySelectors.selectMethod;
 
 import java.io.BufferedReader;
 import java.io.Closeable;
@@ -20,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -28,7 +31,9 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import org.eclipse.jdt.internal.junit.runner.MessageIds;
 import org.junit.ComparisonFailure;
+import org.junit.platform.engine.DiscoverySelector;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.TestExecutionResult.Status;
 import org.junit.platform.engine.TestSource;
@@ -183,11 +188,13 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 		}
 	}
 
+	private final BlockingDeque<DiscoverySelector>			queue;
 	private final Connection<DataInputStream, OutputStream>	control;
-	private Connection<Reader, PrintWriter>					client;
+	private Connection<BufferedReader, PrintWriter>			client;
+	private volatile ReaderThread							readerThread;
 	private long											startNanos;
 	private TestPlan										testPlan;
-	private final boolean									verbose	= false;
+	private final boolean									verbose	= true;
 
 	private static final class Connection<IN, OUT> implements Closeable {
 		final SocketChannel	channel;
@@ -204,10 +211,6 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 		public void close() {
 			safeClose(channel);
 		}
-	}
-
-	public JUnitEclipseListener(int port) throws Exception {
-		this(port, false);
 	}
 
 	private SocketChannel connectRetry(int port) throws Exception {
@@ -229,7 +232,9 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 		return null;
 	}
 
-	public JUnitEclipseListener(int port, boolean rerunIDE) throws Exception {
+	public JUnitEclipseListener(int port, boolean rerunIDE, BlockingDeque<DiscoverySelector> queue)
+		throws Exception {
+		this.queue = queue;
 		try {
 			SocketChannel channel = connectRetry(port);
 			if (rerunIDE) {
@@ -247,14 +252,70 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 		}
 	}
 
-	private Connection<Reader, PrintWriter> junitConnection(SocketChannel channel) throws IOException {
-		info("JUnitEclipseListener: Opening streams for client connection %s", channel);
-		return new Connection<>(channel, new BufferedReader(Channels.newReader(channel, UTF_8.newDecoder(), -1)),
-			new PrintWriter(Channels.newWriter(channel, UTF_8.newEncoder(), -1)));
+	public static final String	TEST_STOP			= ">STOP   ";			//$NON-NLS-1$
+	/**
+	 * Request to rerun a test. TEST_RERUN + testId + " " + testClass + "
+	 * "+testName
+	 */
+	public static final String	TEST_RERUN			= ">RERUN  ";			//$NON-NLS-1$
+
+	public static final int		MSG_HEADER_LENGTH	= TEST_RERUN.length();
+
+	private class ReaderThread extends Thread {
+		@Override
+		public void run() {
+			info("Starting readerThread");
+			try {
+				String message = null;
+				while (true) {
+					System.err.println("Starting readerThread loop");
+					if ((message = client.in.readLine()) != null) {
+						if (message.startsWith(TEST_STOP)) {
+							// fStopped= true;
+							// RemoteTestRunner.this.stop();
+							// synchronized(RemoteTestRunner.this) {
+							// RemoteTestRunner.this.notifyAll();
+							// }
+							break;
+						} else if (message.startsWith(TEST_RERUN)) {
+							String arg = message.substring(MSG_HEADER_LENGTH);
+							// format: testId className testName
+							int c0 = arg.indexOf(' ');
+							int c1 = arg.indexOf(' ', c0 + 1);
+							String s = arg.substring(0, c0);
+							int testId = Integer.parseInt(s);
+							String className = arg.substring(c0 + 1, c1);
+							String testName = arg.substring(c1 + 1, arg.length());
+							System.err.println("className: " + className);
+							System.err.println("testName: " + testName);
+							if (testName == null) {
+								queue.offer(selectClass(className));
+							} else {
+								queue.offer(selectMethod(className + "#" + testName));
+							}
+						}
+					}
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+				info("Error while listening", e);
+			}
+			info("Exiting loop");
+			readerThread = null;
+		}
 	}
 
-	private Connection<Reader, PrintWriter> nullConnection() {
-		return new Connection<>(null, new Reader() {
+	private Connection<BufferedReader, PrintWriter> junitConnection(SocketChannel channel) throws IOException {
+		info("JUnitEclipseListener: Opening streams for client connection %s", channel);
+
+		Connection<BufferedReader, PrintWriter> result = new Connection<>(channel,
+			new BufferedReader(Channels.newReader(channel, UTF_8.newDecoder(), -1)),
+			new PrintWriter(Channels.newWriter(channel, UTF_8.newEncoder(), -1)));
+		return result;
+	}
+
+	private Connection<BufferedReader, PrintWriter> nullConnection() {
+		return new Connection<>(null, new BufferedReader(new Reader() {
 			@Override
 			public int read(char[] cbuf, int off, int len) {
 				return -1;
@@ -262,7 +323,7 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 
 			@Override
 			public void close() {}
-		}, new PrintWriter(new Writer() {
+		}), new PrintWriter(new Writer() {
 			@Override
 			public void write(char[] cbuf, int off, int len) {}
 
@@ -276,6 +337,10 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 
 	@Override
 	public void testPlanExecutionStarted(TestPlan testPlan) {
+		if (readerThread != null) {
+			return;
+		}
+		System.err.println("testPlanExecutionStarted");
 		if (control != null) {
 			info("JUnitEclipseListener: testPlanExecutionStarted: Closing client connection, if any");
 			safeClose(client);
@@ -312,29 +377,41 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 
 	@Override
 	public void testPlanExecutionFinished(TestPlan testPlan) {
+		if (readerThread != null) {
+			return;
+		}
 		message("%RUNTIME", Long.toString(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos)));
 		info("JUnitEclipseListener: testPlanExecutionFinished: Waiting .25 seconds");
-		try {
-			Thread.sleep(250L);
-		} catch (InterruptedException e) {
-			Thread.currentThread()
-				.interrupt();
-		}
-		if (control == null) {
-			info("JUnitEclipseListener: testPlanExecutionFinished: Closing client connection");
-			safeClose(client);
-			client = nullConnection();
-		}
+		// try {
+		// readerThread.join();
+		// // Thread.sleep(250L);
+		// } catch (InterruptedException e) {
+		// Thread.currentThread()
+		// .interrupt();
+		// }
+		// info("readerThread joined");
+		// if (control == null) {
+		// info("JUnitEclipseListener: testPlanExecutionFinished: Closing client
+		// connection");
+		// safeClose(client);
+		// client = nullConnection();
+		// }
+		readerThread = new ReaderThread();
+		readerThread.start();
 	}
 
 	private void sendTrace(Throwable t) {
-		message("%TRACES ");
+		sendTrace(t, "%TRACES ", "%TRACEE ");
+	}
+
+	private void sendTrace(Throwable t, String start, String end) {
+		message(start);
 		t.printStackTrace(client.out);
 		if (verbose) {
 			t.printStackTrace(System.err);
 		}
 		client.out.println();
-		message("%TRACEE ");
+		message(end);
 	}
 
 	private void sendExpectedAndActual(CharSequence expected, CharSequence actual) {
@@ -352,6 +429,9 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 	@Override
 	public void executionStarted(TestIdentifier testIdentifier) {
 		info("JUnitEclipseListener: Execution started: %s", testIdentifier);
+		if (readerThread != null) {
+			return;
+		}
 		if (testIdentifier.isTest()) {
 			message("%TESTS  ", testIdentifier);
 		}
@@ -380,7 +460,13 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 						sendTrace(exception);
 					});
 				}
-				message("%TESTE  ", testIdentifier);
+				if (readerThread == null) {
+					message("%TESTE  ", testIdentifier);
+				} else {
+					String payload = getTestId(testIdentifier) + ""
+					message("%TSTRERN", testIdentifier r.fRerunTestId + " " + r.fRerunClassName + " " + r.fRerunTestName + " " + status); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+
+				}
 			} else { // container
 				if (result != Status.SUCCESSFUL) {
 					message("%ERROR  ", testIdentifier);
@@ -468,7 +554,8 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 		message(key, testIdentifier, "");
 	}
 
-	// namePrefix is used as a special case to signal ignored and aborted tests.
+	// namePrefix is used as a special case to signal ignored and aborted
+	// tests.
 	private void message(String key, TestIdentifier testIdentifier, String namePrefix) {
 		StringBuilder sb = new StringBuilder(getTestId(testIdentifier)).append(',');
 		appendEscaped(namePrefix, sb);
@@ -563,20 +650,20 @@ public class JUnitEclipseListener implements TestExecutionListener, Closeable {
 	}
 
 	private void info(Supplier<CharSequence> message) {
-		if (verbose) {
+		// if (verbose) {
 			info(message.get());
-		}
+		// }
 	}
 
 	private void info(CharSequence message) {
-		if (verbose) {
+		// if (verbose) {
 			System.err.println(message);
-		}
+		// }
 	}
 
 	private void info(String format, Object... args) {
-		if (verbose) {
+		// if (verbose) {
 			System.err.printf(format.concat("%n"), args);
-		}
+		// }
 	}
 }

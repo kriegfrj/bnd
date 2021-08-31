@@ -148,7 +148,7 @@ public class Activator implements BundleActivator, Runnable {
 		if (port > 0) {
 			try {
 				trace("using control port %s, rerun IDE?: %s", port, rerunIDE);
-				jUnitEclipseListener = new JUnitEclipseListener(port, rerunIDE);
+				jUnitEclipseListener = new JUnitEclipseListener(port, rerunIDE, queue);
 				listeners.add(jUnitEclipseListener);
 			} catch (Exception e) {
 				System.err.println(
