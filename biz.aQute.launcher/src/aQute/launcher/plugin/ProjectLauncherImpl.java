@@ -189,6 +189,7 @@ public class ProjectLauncherImpl extends ProjectLauncher {
 		List<String> list = new ArrayList<>(super.getRunVM());
 		list.add(getRunpath().stream()
 			.collect(Strings.joining(",", "-D" + LAUNCHER_PATH + "=", "", "")));
+		System.err.println("runvm: " + list);
 		return list;
 	}
 
@@ -558,10 +559,8 @@ public class ProjectLauncherImpl extends ProjectLauncher {
 	 * Useful for when exported as folder or unzipped
 	 */
 	void doStart(Jar jar, String fqn) throws UnsupportedEncodingException {
-		Collection<String> arguments = getProject().getMergedParameters(RUNVM)
-			.keyList();
-		Collection<String> progArgs = getProject().getMergedParameters(RUNPROGRAMARGS)
-			.keyList();
+		Collection<String> arguments = getRunVM();
+		Collection<String> progArgs = getRunProgramArgs();
 		String nix = "#!/bin/sh\njava -cp . " + renderArguments(arguments, false) + " " + fqn
 			+ (progArgs.isEmpty() ? "" : " " + renderArguments(progArgs, false)) + "\n";
 		String pc = "java -cp . " + renderArguments(arguments, true) + " " + fqn
