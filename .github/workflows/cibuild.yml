@@ -39,7 +39,7 @@ permissions:
 jobs:
   build:
     strategy:
-      fail-fast: ${{ (github.repository != 'bndtools/bnd') || ((github.ref != 'refs/heads/master') && (github.ref != 'refs/heads/next')) || (github.event_name == 'pull_request') }}
+      fail-fast: false 
       matrix:
         os:
         - 'ubuntu-latest'
